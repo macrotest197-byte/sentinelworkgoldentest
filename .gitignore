@@ -1,0 +1,35 @@
+# --- Build / Gradle / IDE ---
+.gradle/
+build/
+app/build/
+*.iml
+.idea/
+local.properties
+captures/
+.cxx/
+
+# --- Copia duplicada anidada (no versionar) ---
+/sentinel/
+
+# --- DATOS SENSIBLES: PII real / aprovisionamiento con secretos ---
+# La lista negra contiene nombres y CBU/CVU/alias de personas reales.
+import_preview.csv
+prototipo-lista-negra.csv
+*.db
+*.db-shm
+*.db-wal
+# Archivos de aprovisionamiento REALES (los .example.json SÍ se versionan).
+sentinel_telegram_provision.json
+sentinel_device_provision.json
+sentinel_blacklist_provision.csv
+
+# --- PII real adicional (roster de personas: nombres + CBU) ---
+import_preview.json
+AUDITORIA_PRODUCCION.md
+COBERTURA.md
+DETECCION_ACCESIBILIDAD.md
+ENTRADA_TEXTO.md
+ENTREGA_SENTINEL.md
+INFORME.md
+INFORME_IMPORTACION.md
+PROCEDIMIENTO_PERSONAS.md

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifest exclusivo del build DEBUG. Registra la Activity de prueba integral del circuito real.
+  NO forma parte del APK release. android:exported="false": no puede abrirse desde otras apps
+  ni por adb/comandos externos; sólo desde el botón debug dentro de la propia app, con
+  confirmación explícita.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.sentinel.recaudacion.debug.RealAlertTestActivity"
+            android:exported="false"
+            android:label="SENTINEL · Prueba real (debug)" />
+    </application>
+</manifest>

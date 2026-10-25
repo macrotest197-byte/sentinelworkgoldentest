@@ -1,0 +1,8 @@
+{
+  "_instrucciones": "Copiá este archivo como 'sentinel_telegram_provision.json' y colocalo en el dispositivo en Android/data/com.sentinel.recaudacion.debug/files/ . SENTINEL lo importará cifrado al abrir y luego lo borrará. NO subas este archivo con el token real a OneDrive, git ni a ningún lado.",
+  "token": "PONER_TOKEN_DE_BOTFATHER_AQUI",
+  "groupChatId": "PONER_ID_DEL_GRUPO_AUTORIZADO_CONFIRMADO",
+  "privateChatId": "",
+  "sendToGroup": true,
+  "sendToPrivate": false
+}
