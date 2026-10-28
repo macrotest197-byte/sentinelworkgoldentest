@@ -11,5 +11,6 @@ object Routes {
     const val HISTORY = "history"
     const val DIAGNOSTICS = "diagnostics"
     const val ACCESSIBILITY = "accessibility"
+    const val POLICY = "policy"
 
 }

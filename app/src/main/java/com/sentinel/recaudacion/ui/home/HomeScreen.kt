@@ -125,6 +125,9 @@ fun HomeScreen(
             SectionItem(Icons.Filled.Shield, "Detección en billeteras", "Accesibilidad opt-in · solo aviso (experimental)") {
                 onOpen(Routes.ACCESSIBILITY)
             }
+            SectionItem(Icons.Filled.Shield, "Política de monitoreo", "Qué se lee, qué se envía y registro de aceptación") {
+                onOpen(Routes.POLICY)
+            }
             SectionItem(Icons.Outlined.History, "Historial", "Incidentes registrados") {
                 onOpen(Routes.HISTORY)
             }

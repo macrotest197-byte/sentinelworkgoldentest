@@ -13,13 +13,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.sentinel.recaudacion.data.settings.ConsentStore
+import com.sentinel.recaudacion.data.settings.DeviceIdentityStore
 import com.sentinel.recaudacion.detection.MonitoringPolicy
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Política de monitoreo. En modo [onboarding] se muestra antes de usar la app y pide aceptación
- * explícita; en modo consulta se abre desde Inicio y solo se lee.
+ * explícita; en modo consulta se abre desde Inicio y solo se lee, mostrando el registro de
+ * aceptación que quedó en este teléfono.
  */
 @Composable
 fun MonitoringPolicyScreen(
@@ -59,9 +67,32 @@ fun MonitoringPolicyScreen(
                 Text("Acepto y continúo")
             }
         } else {
+            ConsentRecord()
             OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
                 Text("Volver")
             }
         }
     }
+}
+
+/** Registro de aceptación de este teléfono: qué versión, cuándo y en qué dispositivo. */
+@Composable
+private fun ConsentRecord() {
+    val context = LocalContext.current
+    val texto = remember {
+        val consent = ConsentStore(context)
+        if (!consent.isAccepted()) {
+            "Sin aceptar en este teléfono."
+        } else {
+            val fecha = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                .format(Date(consent.acceptedAt))
+            val equipo = DeviceIdentityStore(context).friendlyName
+            "Aceptada en este teléfono: versión ${consent.acceptedVersion} · $fecha · $equipo"
+        }
+    }
+    Text(
+        texto,
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.padding(vertical = 10.dp),
+    )
 }

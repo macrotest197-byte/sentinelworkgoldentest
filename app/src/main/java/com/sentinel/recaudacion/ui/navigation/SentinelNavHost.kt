@@ -7,6 +7,7 @@ import androidx.navigation.compose.rememberNavController
 import com.sentinel.recaudacion.ui.alarm.AlarmTestScreen
 import com.sentinel.recaudacion.ui.alarm.SimulatedTextTestScreen
 import com.sentinel.recaudacion.ui.blacklist.BlacklistScreen
+import com.sentinel.recaudacion.ui.consent.MonitoringPolicyScreen
 import com.sentinel.recaudacion.ui.diagnostics.ScreenScanViewerScreen
 import com.sentinel.recaudacion.ui.history.HistoryScreen
 import com.sentinel.recaudacion.ui.home.HomeScreen
@@ -54,6 +55,13 @@ fun SentinelNavHost() {
         }
         composable(Routes.DIAGNOSTICS) {
             ScreenScanViewerScreen(onBack = { nav.popBackStack() })
+        }
+        composable(Routes.POLICY) {
+            MonitoringPolicyScreen(
+                onboarding = false,
+                onAccept = {},
+                onBack = { nav.popBackStack() },
+            )
         }
     }
 }
