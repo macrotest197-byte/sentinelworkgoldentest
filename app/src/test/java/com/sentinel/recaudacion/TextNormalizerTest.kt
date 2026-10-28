@@ -15,7 +15,7 @@ class TextNormalizerTest {
     @Test
     fun alias_ignoraMayusculasYEspacios() {
         assertEquals(
-            TextNormalizer.normalizeForType(RuleType.ALIAS, "  PatoDM.NX  "),
+            TextNormalizer.normalizeForType(RuleType.ALIAS, "  PatoDM.NX   "),
             TextNormalizer.normalizeForType(RuleType.ALIAS, "patodm.nx"),
         )
     }
@@ -60,10 +60,13 @@ class TextNormalizerTest {
     }
 
     @Test
-    fun nombreRechazaApellidoOMombreParcialYOrdenDistinto() {
-        assertFalse(TextNormalizer.matches(RuleType.NOMBRE, "Santiago Gutierrez", "Santiago González"))
-        assertFalse(TextNormalizer.matches(RuleType.NOMBRE, "Santiago Gutierrez", "Nicolas Santiago Gutierrez"))
-        assertFalse(TextNormalizer.matches(RuleType.NOMBRE, "Santiago Gutierrez", "Santiago Gutierrez Lopez"))
+    fun nombreRechazaApellidoDistintoYAceptaExtraONombreAdelante() {
+        // Apellido distinto: sigue rechazado (y en CAMPO no hay red de token único).
+        assertFalse(TextNormalizer.matches(RuleType.NOMBRE, "Santiago Gutierrez", "Santiago Gonzalez"))
+        // Extra nombre adelante: ahora se acepta (antes lo bloqueaba el guardián de vecinos).
+        assertTrue(TextNormalizer.matches(RuleType.NOMBRE, "Santiago Gutierrez", "Nicolas Santiago Gutierrez"))
+        // Apellido de más: ahora se acepta.
+        assertTrue(TextNormalizer.matches(RuleType.NOMBRE, "Santiago Gutierrez", "Santiago Gutierrez Lopez"))
     }
 
     @Test
@@ -89,7 +92,9 @@ class TextNormalizerTest {
         assertTrue(byName.single().confidence >= TextNormalizer.MIN_CONFIDENCE)
 
         assertEquals(1, BlacklistPersonMatcher.match("Destinatario santi.gutierrez", listOf(person)).size)
+        // En CAMPO, un nombre de pila suelto no alcanza: "Santiago Gonzalez" es otra persona.
         assertTrue(BlacklistPersonMatcher.match("Santiago Gonzalez", listOf(person)).isEmpty())
-        assertTrue(BlacklistPersonMatcher.match("Transferencia para Santiago Gutierrez Lopez", listOf(person)).isEmpty())
+        // Un apellido de más al final ya no bloquea.
+        assertFalse(BlacklistPersonMatcher.match("Transferencia para Santiago Gutierrez Lopez", listOf(person)).isEmpty())
     }
 }

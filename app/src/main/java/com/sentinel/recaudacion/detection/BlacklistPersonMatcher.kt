@@ -31,7 +31,11 @@ data class ResolvedMatch(
 
 /** Pure matcher for a single subject with linked names and identifiers. */
 object BlacklistPersonMatcher {
-    fun match(text: String, persons: List<BlacklistPerson>): List<PersonMatch> =
+    fun match(
+        text: String,
+        persons: List<BlacklistPerson>,
+        scope: TextNormalizer.MatchScope = TextNormalizer.MatchScope.CAMPO,
+    ): List<PersonMatch> =
         persons.mapNotNull { person ->
             val candidates = buildList {
                 person.primaryName.takeIf(String::isNotBlank)?.let { add(RuleType.NOMBRE to it) }
@@ -39,7 +43,7 @@ object BlacklistPersonMatcher {
                 person.identifiers.filter { it.value.isNotBlank() }.forEach { add(it.type to it.value) }
             }
             candidates.mapNotNull { (type, value) ->
-                TextNormalizer.match(type, value, text)
+                TextNormalizer.match(type, value, text, scope)
                     ?.takeIf { it.confidence >= TextNormalizer.MIN_CONFIDENCE }
                     ?.let {
                         PersonMatch(
@@ -59,8 +63,12 @@ object BlacklistPersonMatcher {
      * identificador (mismo tipo y valor normalizado) corresponde a varias personas, no elige
      * una; devuelve [ResolvedMatch.ambiguous] = true con persona sin resolver.
      */
-    fun resolve(text: String, persons: List<BlacklistPerson>): ResolvedMatch? {
-        val matches = match(text, persons)
+    fun resolve(
+        text: String,
+        persons: List<BlacklistPerson>,
+        scope: TextNormalizer.MatchScope = TextNormalizer.MatchScope.CAMPO,
+    ): ResolvedMatch? {
+        val matches = match(text, persons, scope)
         val best = matches.maxByOrNull { it.confidence } ?: return null
         val bestNorm = TextNormalizer.normalizeForType(best.matchType, best.matchedValue)
         val distinctPersons = matches.filter {

@@ -8,15 +8,33 @@ import java.text.Normalizer
  *
  * Reglas:
  *  - Alias, nombre, código, cuenta, otro: minúsculas, se quitan acentos y se
- *    colapsan los espacios. Esto permite comparar sin diferencias de mayúsculas
- *    ni espacios, sin alterar el contenido significativo.
+ *    colapsan los espacios.
  *  - CBU, CVU, documento: se conservan únicamente los dígitos. NO se "corrigen"
- *    ni reordenan los números; sólo se eliminan separadores (espacios, puntos,
- *    guiones) para comparar un mismo número escrito con distinto formato.
+ *    ni reordenan los números; sólo se eliminan separadores.
+ *
+ * NOMBRES (cambio de dirección): la lista guarda el nombre legal completo y la billetera
+ * puede mostrar una versión PARCIAL del mismo (lo permite mientras sea compatible con el
+ * documento). Por eso el match acepta que el texto observado sea más corto que el guardado,
+ * más largo, con iniciales, con el nombre de pila abreviado o en orden invertido.
+ *
+ * Los vecinos pasan a ser una PREFERENCIA, no un requisito: en una pantalla completa el
+ * nombre aparece rodeado de palabras que no están en [SENTENCE_WORDS] y exigirlas
+ * descartaba coincidencias legítimas.
  */
 object TextNormalizer {
 
     const val MIN_CONFIDENCE = 0.95
+
+    /**
+     * Ámbito de la comparación. No cambia la normalización: cambia qué reglas de nombre se
+     * habilitan. El token único es una red ancha y solo se usa al leer una pantalla completa.
+     */
+    enum class MatchScope { CAMPO, PANTALLA }
+
+    /** Reglas ampliadas. Habilitadas por decisión del proyecto: más cobertura, más ruido. */
+    private const val ALLOW_REVERSED_ORDER = true
+    private const val ALLOW_ABBREVIATED_FIRST_NAME = true
+    private const val ALLOW_WIDE_SPAN = true
 
     data class Match(val confidence: Double, val matchedText: String)
 
@@ -30,10 +48,8 @@ object TextNormalizer {
         input.filter { it.isDigit() }
 
     /**
-     * Canoniza un teléfono argentino para comparar formatos distintos del MISMO número:
-     * deja solo dígitos y quita el código de país 54, el 0 de acceso nacional y el 9 de móvil.
-     * Limitación conocida (prototipo): el prefijo 15 (que sustituye al 9) NO se unifica; el
-     * administrador debe cargar los teléfonos en un formato consistente.
+     * Canoniza un teléfono argentino para comparar formatos distintos del MISMO número.
+     * Limitación conocida (prototipo): el prefijo 15 NO se unifica.
      */
     fun normalizePhone(input: String): String {
         var d = input.filter { it.isDigit() }
@@ -51,22 +67,26 @@ object TextNormalizer {
             else -> normalizeText(value)
         }
 
-    /** High precision match for an observed text snippet. Names may contain extra
-     * middle names/initials, while first and last names must match exactly. */
-    fun matches(type: RuleType, stored: String, observed: String): Boolean {
-        return match(type, stored, observed)?.confidence?.let { it >= MIN_CONFIDENCE } == true
-    }
+    fun matches(
+        type: RuleType,
+        stored: String,
+        observed: String,
+        scope: MatchScope = MatchScope.CAMPO,
+    ): Boolean = match(type, stored, observed, scope)?.confidence?.let { it >= MIN_CONFIDENCE } == true
 
     /** Returns a conservative confidence for one rule found in the supplied text. */
-    fun match(type: RuleType, stored: String, observed: String): Match? {
+    fun match(
+        type: RuleType,
+        stored: String,
+        observed: String,
+        scope: MatchScope = MatchScope.CAMPO,
+    ): Match? {
         val expected = normalizeForType(type, stored)
         val actual = normalizeForType(type, observed)
         if (expected.isEmpty() || actual.isEmpty()) return null
         if (type == RuleType.TELEFONO) {
             val target = normalizePhone(stored)
             if (target.length < 8) return null
-            // El teléfono debe aparecer como un GRUPO de dígitos completo (con o sin separadores
-            // comunes), no como fragmento dentro de otro número. Evita falsos positivos.
             val found = Regex("[0-9][0-9 ()+.\\-]*[0-9]|[0-9]").findAll(observed)
                 .map { normalizePhone(it.value) }
                 .any { it == target }
@@ -82,34 +102,76 @@ object TextNormalizer {
             val significantLength = expected.count { it.isLetterOrDigit() }
             return if (significantLength >= 5 && tokenSequencePresent(expected, actual)) Match(0.99, stored) else null
         }
-        val wanted = nameTokens(expected)
-        val seen = nameTokens(actual)
-        if (wanted.size < 2 || seen.size < wanted.size) return null
-        // Find a contiguous name span inside surrounding sentence text. First and
-        // last names must match exactly; only middle names/initials can vary.
-        val wantedMiddle = wanted.drop(1).dropLast(1).filter { it.length > 1 }
-        for (start in seen.indices.filter { seen[it] == wanted.first() }) {
-            // An extra name BEFORE the first name (e.g. "Nicolas Santiago Gutierrez")
-            // must be rejected, just like an extra surname after. Only sentence words
-            // (or nothing) may precede the matched name span.
-            val preceding = seen.getOrNull(start - 1)
-            if (preceding != null && preceding !in SENTENCE_WORDS) continue
-            val surnameAt = (start + 1 until seen.size).firstOrNull { seen[it] == wanted.last() } ?: continue
-            val middle = seen.subList(start + 1, surnameAt)
-            val following = seen.getOrNull(surnameAt + 1)
-            if (following != null && following !in SENTENCE_WORDS) continue
-            var at = 0
-            var valid = true
-            for (token in wantedMiddle) {
-                val found = (at until middle.size).firstOrNull { i ->
-                    middle[i] == token || (middle[i].length == 1 && token.startsWith(middle[i]))
+        return matchName(nameTokens(expected), nameTokens(actual), scope)
+    }
+
+    /**
+     * Coincidencia de nombres tolerante en las dos direcciones.
+     *
+     * Busca un tramo en [seen] que arranque en el primer nombre guardado y termine en el último,
+     * con los nombres del medio libres (la billetera puede mostrar un subconjunto, agregar
+     * segundos nombres o usar iniciales). También acepta el orden invertido y el nombre de pila
+     * abreviado. Los tokens vecinos no se exigen: solo se prefieren.
+     */
+    private fun matchName(
+        wanted: List<String>,
+        seen: List<String>,
+        scope: MatchScope,
+    ): Match? {
+        if (wanted.isEmpty() || seen.isEmpty()) return null
+        if (wanted.joinToString(" ") == seen.joinToString(" ")) return Match(1.0, wanted.joinToString(" "))
+
+        // La lista tiene un solo token: no hay tramo que armar.
+        if (wanted.size == 1) return loneToken(wanted.first(), seen)
+
+        val first = wanted.first()
+        val last = wanted.last()
+        var best: Match? = null
+        fun keep(candidate: Match) {
+            val current = best
+            if (current == null || candidate.confidence > current.confidence) best = candidate
+        }
+
+        for (i in seen.indices) {
+            for (j in i + 1 until seen.size) {
+                val span = seen.subList(i, j + 1).joinToString(" ")
+                val wide = j - i + 1 > wanted.size + 1
+                val conf = if (wide && ALLOW_WIDE_SPAN) 0.95 else 0.96
+                if (seen[i] == first && seen[j] == last) {
+                    keep(Match(conf, span))
+                } else if (ALLOW_REVERSED_ORDER && seen[i] == last && seen[j] == first) {
+                    keep(Match(conf, span))
+                } else if (ALLOW_ABBREVIATED_FIRST_NAME && seen[i].length >= 3 &&
+                    first.startsWith(seen[i]) && seen[j] == last
+                ) {
+                    keep(Match(conf, span))
                 }
-                if (found == null) { valid = false; break }
-                at = found + 1
             }
-            if (valid) return Match(0.96, seen.subList(start, surnameAt + 1).joinToString(" "))
+        }
+        best?.let { return it }
+
+        // Red ancha: un solo token suelto. Solo al leer una pantalla completa; en un campo
+        // haría disparar por coincidencia parcial de nombre de pila con otra persona.
+        if (scope == MatchScope.PANTALLA) {
+            return loneToken(first, seen) ?: loneToken(last, seen)
         }
         return null
+    }
+
+    /**
+     * Un token suelto (nombre de pila o apellido). Se prefiere la aparición con contexto de
+     * oración; si no hay ninguna, igual se acepta con un punto menos de confianza.
+     */
+    private fun loneToken(token: String, seen: List<String>): Match? {
+        var fallback: Match? = null
+        for (idx in seen.indices) {
+            if (seen[idx] != token) continue
+            val beforeOk = seen.getOrNull(idx - 1)?.let { it in SENTENCE_WORDS } ?: true
+            val afterOk = seen.getOrNull(idx + 1)?.let { it in SENTENCE_WORDS } ?: true
+            if (beforeOk && afterOk) return Match(0.96, token)
+            if (fallback == null) fallback = Match(0.95, token)
+        }
+        return fallback
     }
 
     private fun tokenSequencePresent(expected: String, actual: String): Boolean {
@@ -121,8 +183,7 @@ object TextNormalizer {
     private fun nameTokens(value: String): List<String> =
         value.split(Regex("[^\\p{L}]+")).filter(String::isNotBlank)
 
-    // A following surname must not be mistaken for surrounding sentence text.
-    // This conservative allowlist handles common Spanish sentence continuations.
+    // Solo se usa para PREFERIR una aparición con contexto de oración, no para exigirla.
     private val SENTENCE_WORDS = setOf(
         "desde", "en", "por", "para", "con", "a", "de", "del", "y", "que", "quien",
         "realizo", "intento", "hizo", "envio", "transfirio", "solicito", "quiere", "ahora",
