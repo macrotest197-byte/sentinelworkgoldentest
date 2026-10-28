@@ -1,0 +1,10 @@
+tipo,valor,descripcion,severidad,activo,persona_id,nombre_principal,variantes
+Alias,ejemplo.uno.mp,Cuenta de ejemplo,Crítica,si,demo-1,Persona Demo Uno,"Demo Uno|Persona Uno"
+CBU,0000000000000000000001,,Crítica,si,demo-1,Persona Demo Uno,"Demo Uno|Persona Uno"
+Nombre,Persona Demo Uno,,Crítica,si,demo-1,Persona Demo Uno,"Demo Uno|Persona Uno"
+Alias,ejemplo.dos.lemon,Cuenta de ejemplo,Advertencia,si,demo-2,Persona Demo Dos,"Demo Dos"
+CVU,0000000000000000000002,,Advertencia,si,demo-2,Persona Demo Dos,"Demo Dos"
+Nombre,Persona Demo Dos,,Advertencia,si,demo-2,Persona Demo Dos,"Demo Dos"
+Alias,ejemplo.tres.uala,Cuenta de ejemplo,Crítica,si,demo-3,Persona Demo Tres,
+CBU,0000000000000000000003,,Crítica,si,demo-3,Persona Demo Tres,
+Nombre,Persona Demo Tres,,Crítica,si,demo-3,Persona Demo Tres,

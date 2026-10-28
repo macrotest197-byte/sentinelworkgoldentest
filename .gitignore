@@ -24,12 +24,10 @@ sentinel_device_provision.json
 sentinel_blacklist_provision.csv
 
 # --- PII real adicional (roster de personas: nombres + CBU) ---
+# Dataset completo del roster: queda fuera del repo.
 import_preview.json
-AUDITORIA_PRODUCCION.md
-COBERTURA.md
-DETECCION_ACCESIBILIDAD.md
-ENTRADA_TEXTO.md
-ENTREGA_SENTINEL.md
-INFORME.md
-INFORME_IMPORTACION.md
-PROCEDIMIENTO_PERSONAS.md
+# Test atado a datos reales del prototipo (CBU de tercero): fuera del repo.
+ValidacionPrototipoTest.kt
+/app/src/test/java/com/sentinel/recaudacion/ValidacionPrototipoTest.kt
+# Nota: los informes .md (INFORME, AUDITORIA, DETECCION_ACCESIBILIDAD, PROCEDIMIENTO_PERSONAS,
+# INFORME_IMPORTACION, etc.) SÍ se versionan, saneados de PII de terceros.
