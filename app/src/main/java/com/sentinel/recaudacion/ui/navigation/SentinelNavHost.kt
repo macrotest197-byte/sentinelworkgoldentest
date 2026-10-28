@@ -7,7 +7,7 @@ import androidx.navigation.compose.rememberNavController
 import com.sentinel.recaudacion.ui.alarm.AlarmTestScreen
 import com.sentinel.recaudacion.ui.alarm.SimulatedTextTestScreen
 import com.sentinel.recaudacion.ui.blacklist.BlacklistScreen
-import com.sentinel.recaudacion.ui.common.PlaceholderScreen
+import com.sentinel.recaudacion.ui.diagnostics.ScreenScanViewerScreen
 import com.sentinel.recaudacion.ui.history.HistoryScreen
 import com.sentinel.recaudacion.ui.home.HomeScreen
 import com.sentinel.recaudacion.ui.importcsv.ImportScreen
@@ -53,12 +53,7 @@ fun SentinelNavHost() {
             HistoryScreen(onBack = { nav.popBackStack() })
         }
         composable(Routes.DIAGNOSTICS) {
-            PlaceholderScreen(
-                title = "Permisos y diagnóstico",
-                phase = "Fase 5",
-                onBack = { nav.popBackStack() },
-                description = "Estado de permisos, de las fuentes de detección autorizadas y del servicio de monitoreo. No se mostrará como activo si no está funcionando."
-            )
+            ScreenScanViewerScreen(onBack = { nav.popBackStack() })
         }
     }
 }
