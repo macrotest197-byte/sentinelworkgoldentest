@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Servicio de accesibilidad de SENTINEL: SOLO detección/aviso en billeteras autorizadas.
-  Restringido a los paquetes reales de Mercado Pago, Ualá y Brubank (fail-closed a nivel de framework).
+  Restringido a los paquetes reales de las billeteras verificadas (fail-closed a nivel de framework).
   No puede realizar gestos ni pulsar controles (no se declara canPerformGestures).
+  flagIncludeNotImportantViews: muchas apps marcan el texto decorativo como no importante y quedaría
+  fuera del árbol. flagRetrieveInteractiveWindows: permite leer diálogos y hojas que viven en otra ventana.
 -->
 <accessibility-service
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeViewTextChanged|typeViewFocused|typeWindowContentChanged|typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault"
+    android:accessibilityFlags="flagDefault|flagIncludeNotImportantViews|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_desc"
     android:notificationTimeout="200"

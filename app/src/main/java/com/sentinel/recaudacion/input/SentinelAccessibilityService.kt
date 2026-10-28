@@ -2,32 +2,43 @@ package com.sentinel.recaudacion.input
 
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
+import com.sentinel.recaudacion.BuildConfig
 import com.sentinel.recaudacion.SentinelApp
 import com.sentinel.recaudacion.data.model.BlacklistPerson
 import com.sentinel.recaudacion.detection.AccessibilityScanPolicy
 import com.sentinel.recaudacion.detection.BlacklistPersonMatcher
 import com.sentinel.recaudacion.detection.ConfirmedAlertProcessor
+import com.sentinel.recaudacion.detection.ResolvedMatch
+import com.sentinel.recaudacion.detection.ScreenScanPolicy
+import com.sentinel.recaudacion.detection.TextNormalizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Servicio de accesibilidad **opt-in** y acotado a billeteras autorizadas. Objetivo de esta fase:
- * **detectar y avisar**, NUNCA bloquear. No pulsa controles, no modifica campos, no toca transferencias.
+ * Servicio de accesibilidad **opt-in** y acotado a billeteras autorizadas. **Detecta y avisa**,
+ * NUNCA bloquea. No pulsa controles, no modifica campos, no toca transferencias.
  *
- * - Fail-closed: solo apps de [AccessibilityScanPolicy.ALLOWED_PACKAGES]; excluye campos de contraseña.
- * - Reutiliza el motor existente: [BlacklistPersonMatcher.resolve] + [ConfirmedAlertProcessor]
- *   (mismo incidente + alarma + cola de Telegram; sin segundo matcher ni segundo pipeline).
- * - No almacena pantallas ni envía texto general: la alerta lleva solo los campos mínimos.
- * - Dedup por destinatario mientras el usuario permanece en la pantalla (+ dedup del procesador).
+ * Dos fuentes, un solo circuito:
+ *  1. **Campo** ([MatchScope.CAMPO]): el texto del campo que cambió. Es la vía exacta.
+ *  2. **Pantalla** ([MatchScope.PANTALLA]): el árbol de la ventana, con retardo, para atrapar el
+ *     titular que la billetera resuelve después de escribir el alias. Es la red de seguridad.
+ *
+ * Ambas reutilizan [BlacklistPersonMatcher.resolve] y [ConfirmedAlertProcessor]; no hay segundo
+ * pipeline. La alerta del escaneo usa la misma eventKey que el campo, así que la dedup del
+ * procesador evita avisar dos veces por la misma persona.
  */
 class SentinelAccessibilityService : AccessibilityService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     @Volatile private var persons: List<BlacklistPerson> = emptyList()
     @Volatile private var lastKey: String? = null
+    @Volatile private var lastScreenKey: String? = null
+    private var screenJob: Job? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -44,8 +55,10 @@ class SentinelAccessibilityService : AccessibilityService() {
         if (pkg == null || pkg !in AccessibilityScanPolicy.ALLOWED_PACKAGES) return
 
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            // Nueva pantalla: se puede volver a avisar por el mismo destinatario; refrescar reglas.
+            // Nueva pantalla: se rearma todo y se refrescan las reglas.
             lastKey = null
+            lastScreenKey = null
+            screenJob?.cancel()
             scope.launch { refreshPersons() }
             return
         }
@@ -54,6 +67,14 @@ class SentinelAccessibilityService : AccessibilityService() {
             e.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
         if (!relevant) return
 
+        // Vía 1: el campo que cambió.
+        inspectField(pkg, e)
+
+        // Vía 2: la pantalla, con retardo, para cuando la billetera resuelve el titular.
+        scheduleScreenScan(pkg)
+    }
+
+    private fun inspectField(pkg: String, e: AccessibilityEvent) {
         val node = e.source ?: return
         val text: String
         val isPwd: Boolean
@@ -64,8 +85,7 @@ class SentinelAccessibilityService : AccessibilityService() {
             runCatching { node.recycle() }
         }
         if (!AccessibilityScanPolicy.shouldInspect(pkg, isPwd, text)) return
-        if (com.sentinel.recaudacion.BuildConfig.DEBUG) {
-            // Solo DEBUG: evidencia de evento recibido SIN contenido (solo paquete, tipo y largo).
+        if (BuildConfig.DEBUG) {
             android.util.Log.d("SentinelA11y", "evt pkg=$pkg type=${e.eventType} len=${text.trim().length}")
         }
         inspect(pkg, text.trim())
@@ -76,50 +96,116 @@ class SentinelAccessibilityService : AccessibilityService() {
         scope.launch {
             if (persons.isEmpty()) refreshPersons()
             val resolved = BlacklistPersonMatcher.resolve(text, persons)
-            if (com.sentinel.recaudacion.BuildConfig.DEBUG) {
-                android.util.Log.d(
-                    "SentinelA11y",
-                    "match pkg=$pkg -> " + (resolved?.let {
-                        "tipo=${it.matchType.name} persona=${it.personId ?: "amb"} ambiguo=${it.ambiguous}"
-                    } ?: "sin coincidencia"),
-                )
-            }
+            logMatch(pkg, "campo", resolved)
             if (resolved == null) return@launch
-            val key = "${resolved.personId ?: "amb"}|${resolved.matchType.name}|${resolved.matchedValue}"
-            if (key == lastKey) return@launch // mismo destinatario en la misma pantalla → no repetir
+            val key = eventKey(resolved)
+            if (key == lastKey) return@launch
             lastKey = key
-            // Modo diagnóstico SOLO DEBUG: registra la coincidencia (mínimo, sin texto) y NO dispara
-            // alarma ni Telegram. Se activa creando el archivo-bandera por adb (run-as).
-            if (com.sentinel.recaudacion.BuildConfig.DEBUG && diagnosticModeEnabled()) {
-                android.util.Log.i(
-                    "SentinelA11y",
-                    "DIAG detecta pkg=$pkg tipo=${resolved.matchType.name} " +
-                        "persona=${resolved.personId ?: "amb"} ambiguo=${resolved.ambiguous} (SIN alerta)",
-                )
+            if (BuildConfig.DEBUG && diagnosticModeEnabled()) {
+                android.util.Log.i("SentinelA11y", "DIAG campo pkg=$pkg $key (SIN alerta)")
                 return@launch
             }
-            runCatching {
-                ConfirmedAlertProcessor.process(
-                    app = application as SentinelApp,
-                    resolved = resolved,
-                    source = "Accesibilidad · ${AccessibilityScanPolicy.appLabel(pkg)}",
-                    eventKey = key,
-                    sourceApp = pkg,
-                    authorizedExcerpt = null, // no se almacena el texto de la pantalla
-                )
-            }
+            deliver(pkg, resolved, "Accesibilidad · ${AccessibilityScanPolicy.appLabel(pkg)}", key)
         }
     }
 
-    /** SOLO DEBUG: ¿está el archivo-bandera de diagnóstico? (evita alarmas/Telegram en las pruebas). */
+    private fun scheduleScreenScan(pkg: String) {
+        screenJob?.cancel()
+        screenJob = scope.launch {
+            delay(SCREEN_SCAN_DELAY_MS)
+            scanScreen(pkg)
+        }
+    }
+
+    /**
+     * Lee la ventana completa y la evalúa con [TextNormalizer.MatchScope.PANTALLA]. Solo actúa
+     * en modo diagnóstico; en producción se habilitará después de la medición en dispositivo.
+     */
+    private suspend fun scanScreen(pkg: String) {
+        val nodes = runCatching { ScreenTextCollector.collect(rootInActiveWindow) }.getOrDefault(emptyList())
+        if (nodes.isEmpty()) return
+        val text = nodes.joinToString(" ")
+        if (!ScreenScanPolicy.shouldScan(pkg, text)) return
+
+        val screenKey = ScreenScanPolicy.screenKey(text)
+        if (screenKey == lastScreenKey) return
+        lastScreenKey = screenKey
+
+        if (persons.isEmpty()) refreshPersons()
+        val resolved = BlacklistPersonMatcher.resolve(text, persons, TextNormalizer.MatchScope.PANTALLA)
+        dumpDiagnostic(pkg, nodes, resolved)
+        logMatch(pkg, "pantalla", resolved)
+        if (resolved == null) return
+
+        // El escaneo todavía no alerta: primero se mide en dispositivo.
+        if (BuildConfig.DEBUG && diagnosticModeEnabled()) {
+            android.util.Log.i("SentinelA11y", "DIAG pantalla pkg=$pkg ${eventKey(resolved)} (SIN alerta)")
+        }
+    }
+
+    private fun eventKey(resolved: ResolvedMatch): String =
+        "${resolved.personId ?: "amb"}|${resolved.matchType.name}|${resolved.matchedValue}"
+
+    private fun logMatch(pkg: String, via: String, resolved: ResolvedMatch?) {
+        if (!BuildConfig.DEBUG) return
+        android.util.Log.d(
+            "SentinelA11y",
+            "match $via pkg=$pkg -> " + (resolved?.let {
+                "tipo=${it.matchType.name} persona=${it.personId ?: "amb"} ambiguo=${it.ambiguous} conf=${it.confidence}"
+            } ?: "sin coincidencia"),
+        )
+    }
+
+    private suspend fun deliver(pkg: String, resolved: ResolvedMatch, source: String, key: String) {
+        runCatching {
+            ConfirmedAlertProcessor.process(
+                app = application as SentinelApp,
+                resolved = resolved,
+                source = source,
+                eventKey = key,
+                sourceApp = pkg,
+                authorizedExcerpt = null,
+            )
+        }
+    }
+
+    /** SOLO DEBUG: deja la última pantalla leída para el visor de diagnóstico. */
+    private fun dumpDiagnostic(pkg: String, nodes: List<String>, resolved: ResolvedMatch?) {
+        if (!BuildConfig.DEBUG) return
+        runCatching {
+            java.io.File(filesDir, DIAG_FILE).writeText(
+                buildString {
+                    appendLine("ts=${System.currentTimeMillis()}")
+                    appendLine("pkg=$pkg")
+                    appendLine("app=${AccessibilityScanPolicy.appLabel(pkg)}")
+                    appendLine(
+                        "match=" + (resolved?.let {
+                            "${it.matchType.name}|${it.matchedValue}|${it.personId ?: "amb"}|conf=${it.confidence}"
+                        } ?: "sin coincidencia"),
+                    )
+                    appendLine("--- nodos ---")
+                    nodes.forEach { appendLine(it) }
+                },
+            )
+        }
+    }
+
+    /** SOLO DEBUG: ¿está el archivo-bandera de diagnóstico? */
     private fun diagnosticModeEnabled(): Boolean =
-        runCatching { java.io.File(filesDir, "a11y_diag").exists() }.getOrDefault(false)
+        runCatching { java.io.File(filesDir, DIAG_FLAG).exists() }.getOrDefault(false)
 
     override fun onInterrupt() {}
 
     override fun onDestroy() {
+        screenJob?.cancel()
         scope.cancel()
         persons = emptyList()
         super.onDestroy()
+    }
+
+    companion object {
+        private const val SCREEN_SCAN_DELAY_MS = 1200L
+        const val DIAG_FLAG = "a11y_diag"
+        const val DIAG_FILE = "a11y_last_screen.txt"
     }
 }
