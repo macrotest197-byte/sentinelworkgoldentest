@@ -29,4 +29,6 @@ data class BlacklistEntity(
     val personId: String? = null,
     val primaryName: String? = null,
     val knownNameVariants: String? = null,
+    val scanRoutes: String? = null,
+    val exemptDevices: String? = null,
 )

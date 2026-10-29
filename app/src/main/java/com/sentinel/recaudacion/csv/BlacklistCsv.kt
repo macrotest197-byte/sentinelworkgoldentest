@@ -20,12 +20,23 @@ data class BlacklistImportPreview(
 
 object BlacklistCsv {
 
-    val HEADER = listOf("tipo", "valor", "descripcion", "severidad", "activo", "persona_id", "nombre_principal", "variantes")
+    val HEADER = listOf(
+        "tipo",
+        "valor",
+        "descripcion",
+        "severidad",
+        "activo",
+        "persona_id",
+        "nombre_principal",
+        "variantes",
+        "escaneo",
+        "excepto_en_dispositivos",
+    )
 
     fun template(): String = buildString {
         appendLine(Csv.line(HEADER))
-        appendLine(Csv.line(listOf("Alias", "patodm.nx", "Cuenta restringida", "Crítica", "si", "", "", "")))
-        appendLine(Csv.line(listOf("CBU", "0000003100010000000001", "Ejemplo CBU", "Advertencia", "si", "", "", "")))
+        appendLine(Csv.line(listOf("Alias", "patodm.nx", "Cuenta restringida", "Crítica", "si", "", "", "", "", "")))
+        appendLine(Csv.line(listOf("CBU", "0000003100010000000001", "Ejemplo CBU", "Advertencia", "si", "", "", "", "", "")))
     }
 
     fun export(rules: List<BlacklistRule>): String = buildString {
@@ -42,6 +53,8 @@ object BlacklistCsv {
                         r.personId.orEmpty(),
                         r.primaryName.orEmpty(),
                         r.knownNameVariants.joinToString("|"),
+                        r.scanRoutes.orEmpty(),
+                        r.exemptDevices.orEmpty(),
                     )
                 )
             )
@@ -63,6 +76,8 @@ object BlacklistCsv {
         val idxPersonId = header.indexOf("persona_id")
         val idxPrimaryName = header.indexOf("nombre_principal")
         val idxVariants = header.indexOf("variantes")
+        val idxScan = header.indexOf("escaneo")
+        val idxExempt = header.indexOf("excepto_en_dispositivos")
         if (idxTipo < 0 || idxValor < 0) {
             return BlacklistImportPreview(
                 emptyList(),
@@ -100,6 +115,8 @@ object BlacklistCsv {
                 personId = cell(idxPersonId).ifEmpty { null },
                 primaryName = cell(idxPrimaryName).ifEmpty { null },
                 knownNameVariants = cell(idxVariants).split('|').map(String::trim).filter(String::isNotBlank),
+                scanRoutes = cell(idxScan).ifEmpty { null },
+                exemptDevices = cell(idxExempt).ifEmpty { null },
             )
             val dupKey = type.name + "|" + TextNormalizer.normalizeForType(type, valor)
             val isDup = !seen.add(dupKey)

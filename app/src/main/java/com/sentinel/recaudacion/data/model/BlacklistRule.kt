@@ -14,6 +14,8 @@ data class BlacklistRule(
     val personId: String? = null,
     val primaryName: String? = null,
     val knownNameVariants: List<String> = emptyList(),
+    val scanRoutes: String? = null,
+    val exemptDevices: String? = null,
 ) {
     /** Valor parcialmente oculto para pantallas que puedan compartirse. */
     fun maskedValue(): String {

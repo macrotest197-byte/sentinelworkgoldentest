@@ -7,6 +7,7 @@ import com.sentinel.recaudacion.data.model.BlacklistPerson
 import com.sentinel.recaudacion.data.model.PersonIdentifier
 import com.sentinel.recaudacion.data.model.Severity
 import com.sentinel.recaudacion.data.model.RuleType
+import com.sentinel.recaudacion.detection.PersonScopeFilter
 import com.sentinel.recaudacion.detection.TextNormalizer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -41,8 +42,11 @@ class BlacklistRepository(private val dao: BlacklistDao) {
             val primary = rules.firstNotNullOfOrNull { it.primaryName?.takeIf(String::isNotBlank) }
                 ?: nameRule?.value.orEmpty()
             val variants = (rules.flatMap { it.knownNameVariants } +
-                rules.filter { it.type == RuleType.NOMBRE }.map { it.value })
+                    rules.filter { it.type == RuleType.NOMBRE }.map { it.value })
                 .filter { it.isNotBlank() && it != primary }.distinct()
+            // Las dos columnas son de persona, no de regla: se toma el primer valor no vacío.
+            val scanRaw = rules.firstNotNullOfOrNull { it.scanRoutes?.takeIf(String::isNotBlank) }
+            val exemptRaw = rules.firstNotNullOfOrNull { it.exemptDevices?.takeIf(String::isNotBlank) }
             BlacklistPerson(
                 id = personId,
                 primaryName = primary,
@@ -50,6 +54,8 @@ class BlacklistRepository(private val dao: BlacklistDao) {
                 identifiers = rules.filter { it.type != RuleType.NOMBRE }
                     .map { PersonIdentifier(it.type, it.value) },
                 severity = if (rules.any { it.severity == Severity.CRITICA }) Severity.CRITICA else Severity.ADVERTENCIA,
+                scanRoutes = PersonScopeFilter.parseRoutes(scanRaw),
+                exemptDevices = PersonScopeFilter.parseDevices(exemptRaw),
             )
         }
 
@@ -82,6 +88,8 @@ class BlacklistRepository(private val dao: BlacklistDao) {
                     personId = rule.personId,
                     primaryName = rule.primaryName?.trim()?.ifEmpty { null },
                     knownNameVariants = JSONArray(rule.knownNameVariants.filter(String::isNotBlank).distinct()).toString(),
+                    scanRoutes = rule.scanRoutes,
+                    exemptDevices = rule.exemptDevices,
                 )
             )
             return SaveResult.Ok(id)
@@ -100,6 +108,8 @@ class BlacklistRepository(private val dao: BlacklistDao) {
                     personId = rule.personId,
                     primaryName = rule.primaryName?.trim()?.ifEmpty { null },
                     knownNameVariants = JSONArray(rule.knownNameVariants.filter(String::isNotBlank).distinct()).toString(),
+                    scanRoutes = rule.scanRoutes,
+                    exemptDevices = rule.exemptDevices,
                 )
             )
             return SaveResult.Ok(rule.id)
@@ -171,5 +181,7 @@ class BlacklistRepository(private val dao: BlacklistDao) {
             val array = JSONArray(knownNameVariants ?: "[]")
             (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }
         }.getOrDefault(emptyList()),
+        scanRoutes = scanRoutes,
+        exemptDevices = exemptDevices,
     )
 }

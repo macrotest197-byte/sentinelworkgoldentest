@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [BlacklistEntity::class, OutboxEntity::class, IncidentEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -43,6 +43,12 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE incidents ADD COLUMN sourceExcerpt TEXT")
             }
         }
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE blacklist ADD COLUMN scanRoutes TEXT")
+                db.execSQL("ALTER TABLE blacklist ADD COLUMN exemptDevices TEXT")
+            }
+        }
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -59,6 +65,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(MIGRATION_4_5)
                     .addMigrations(MIGRATION_5_6)
                     .addMigrations(MIGRATION_6_7)
+                    .addMigrations(MIGRATION_7_8)
                     .build()
                     .also { INSTANCE = it }
             }
