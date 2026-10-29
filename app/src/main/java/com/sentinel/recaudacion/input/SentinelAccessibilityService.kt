@@ -147,7 +147,7 @@ class SentinelAccessibilityService : AccessibilityService() {
     }
 
     private fun eventKey(resolved: ResolvedMatch): String =
-        "${resolved.personId ?: "amb"}|${resolved.matchType.name}|${resolved.matchedValue}"
+        resolved.personId ?: "amb|${resolved.matchType.name}|${resolved.matchedValue}"
 
     private fun logMatch(pkg: String, via: String, resolved: ResolvedMatch?) {
         if (!BuildConfig.DEBUG) return
