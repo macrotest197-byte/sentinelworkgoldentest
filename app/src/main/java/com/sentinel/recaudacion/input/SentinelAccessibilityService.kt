@@ -1,10 +1,11 @@
-﻿package com.sentinel.recaudacion.input
+package com.sentinel.recaudacion.input
 
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import com.sentinel.recaudacion.BuildConfig
 import com.sentinel.recaudacion.SentinelApp
 import com.sentinel.recaudacion.data.model.BlacklistPerson
+import com.sentinel.recaudacion.data.settings.ConsentStore
 import com.sentinel.recaudacion.data.settings.DeviceIdentityStore
 import com.sentinel.recaudacion.detection.AccessibilityScanPolicy
 import com.sentinel.recaudacion.detection.BlacklistPersonMatcher
@@ -42,6 +43,7 @@ class SentinelAccessibilityService : AccessibilityService() {
     @Volatile private var campoPersons: List<BlacklistPerson> = emptyList()
     @Volatile private var pantallaPersons: List<BlacklistPerson> = emptyList()
     private val identity by lazy { DeviceIdentityStore(applicationContext) }
+    private val consent by lazy { ConsentStore(applicationContext) }
     @Volatile private var sessionSeq: Int = 0
     @Volatile private var lastKey: String? = null
     @Volatile private var lastScreenKey: String? = null
@@ -63,6 +65,7 @@ class SentinelAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val e = event ?: return
+        if (!consent.isAccepted()) return
         val pkg = e.packageName?.toString()
         if (pkg == null || pkg !in AccessibilityScanPolicy.ALLOWED_PACKAGES) return
 
