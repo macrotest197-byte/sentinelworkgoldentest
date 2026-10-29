@@ -1,4 +1,4 @@
-package com.sentinel.recaudacion.detection
+﻿package com.sentinel.recaudacion.detection
 
 import com.sentinel.recaudacion.SentinelApp
 import com.sentinel.recaudacion.alarm.AlarmService
@@ -34,7 +34,7 @@ object ConfirmedAlertProcessor {
 
         val identity = app.deviceIdentity
         val deviceName = identity.friendlyName
-        // «Le corresponde a»: nombre de la persona, o sin resolver / ambigua. No se inventa.
+        // Â«Le corresponde aÂ»: nombre de la persona, o sin resolver / ambigua. No se inventa.
         val personDisplay = resolved.personName
             ?: if (resolved.ambiguous) AlertMessage.AMBIGUOUS else AlertMessage.UNRESOLVED
         val message = AlertMessage.alert(
@@ -42,6 +42,7 @@ object ConfirmedAlertProcessor {
             matchedValue = resolved.matchedValue,
             personName = personDisplay,
             typeLabel = resolved.matchType.label,
+            wallet = AccessibilityScanPolicy.appLabel(sourceApp),
         )
         val alarmStatus = runCatching {
             AlarmService.start(app.applicationContext, message)

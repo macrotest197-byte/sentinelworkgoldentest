@@ -1,4 +1,4 @@
-package com.sentinel.recaudacion
+﻿package com.sentinel.recaudacion
 
 import com.sentinel.recaudacion.telegram.AlertMessage
 import com.sentinel.recaudacion.telegram.SendOutcome
@@ -21,7 +21,7 @@ class TelegramClientTest {
         val r = TelegramClient.parseResponse(400, """{"ok":false,"description":"chat not found"}""")
         assertTrue(r is SendOutcome.ApiError)
         assertEquals("chat not found", (r as SendOutcome.ApiError).description)
-        assertTrue(!r.isRetryable) // un error de datos no se reintenta
+        assertTrue(!r.isRetryable)
     }
 
     @Test
@@ -45,23 +45,23 @@ class TelegramClientTest {
 
     @Test
     fun mensajeAlerta_tieneFormatoSolicitado() {
-        val now = java.util.Date(0) // fecha fija y determinista para el aserto
+        val now = java.util.Date(0)
         val msg = AlertMessage.alert(
             device = "Celular Pato",
             matchedValue = "patodm.nx",
             personName = "Pato Encargado",
             typeLabel = "Alias",
+            wallet = "Mercado Pago",
             now = now,
         )
         val fecha = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", java.util.Locale.getDefault()).format(now)
         val esperado = "🚨 SENTINEL — DETECCIÓN DE LISTA NEGRA\n" +
-            "📱 Dispositivo: Celular Pato\n" +
+            "📱 Dispositivo: Celular Pato · Billetera: Mercado Pago\n" +
             "🔎 Palabra detectada: patodm.nx\n" +
             "👤 Le corresponde a: Pato Encargado\n" +
             "🧾 Tipo de dato: Alias\n" +
             "🕒 Fecha y hora: $fecha"
         assertEquals(esperado, msg)
-        // No se transmite información sensible.
         assertTrue(!msg.contains("saldo"))
         assertTrue(!msg.contains("contraseña"))
         assertTrue(!msg.contains("token"))
@@ -74,7 +74,8 @@ class TelegramClientTest {
             matchedValue = "00000031000000000001",
             personName = AlertMessage.UNRESOLVED,
             typeLabel = "CBU",
+            wallet = "Ualá",
         )
-        assertTrue(msg.contains("👤 Le corresponde a: Sin resolver"))
+        assertTrue(msg.contains("Le corresponde a: Sin resolver"))
     }
 }
