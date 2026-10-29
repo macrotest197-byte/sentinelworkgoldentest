@@ -31,6 +31,10 @@ import kotlinx.coroutines.launch
  *
  * Cada vía tiene su propia lista: [PersonScopeFilter] decide qué personas participan y cuáles
  * quedan exceptuadas en este dispositivo.
+ *
+ * La clave de evento lleva un número de sesión que sube en cada cambio de ventana: dentro de una
+ * misma pantalla alias/CBU/nombre de la misma persona se colapsan en una sola alerta, pero al
+ * cambiar de pantalla, de billetera o al reabrir la app la clave es nueva y vuelve a alertar.
  */
 class SentinelAccessibilityService : AccessibilityService() {
 
@@ -38,6 +42,7 @@ class SentinelAccessibilityService : AccessibilityService() {
     @Volatile private var campoPersons: List<BlacklistPerson> = emptyList()
     @Volatile private var pantallaPersons: List<BlacklistPerson> = emptyList()
     private val identity by lazy { DeviceIdentityStore(applicationContext) }
+    @Volatile private var sessionSeq: Int = 0
     @Volatile private var lastKey: String? = null
     @Volatile private var lastScreenKey: String? = null
     private var screenJob: Job? = null
@@ -62,6 +67,7 @@ class SentinelAccessibilityService : AccessibilityService() {
         if (pkg == null || pkg !in AccessibilityScanPolicy.ALLOWED_PACKAGES) return
 
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            sessionSeq++
             lastKey = null
             lastScreenKey = null
             screenJob?.cancel()
@@ -146,8 +152,10 @@ class SentinelAccessibilityService : AccessibilityService() {
         deliver(pkg, resolved, "Accesibilidad · pantalla · ${AccessibilityScanPolicy.appLabel(pkg)}", key)
     }
 
-    private fun eventKey(resolved: ResolvedMatch): String =
-        resolved.personId ?: "amb|${resolved.matchType.name}|${resolved.matchedValue}"
+    private fun eventKey(resolved: ResolvedMatch): String {
+        val person = resolved.personId ?: "amb|${resolved.matchType.name}|${resolved.matchedValue}"
+        return "$sessionSeq|$person"
+    }
 
     private fun logMatch(pkg: String, via: String, resolved: ResolvedMatch?) {
         if (!BuildConfig.DEBUG) return
