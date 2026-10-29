@@ -1,4 +1,4 @@
-package com.sentinel.recaudacion.ui.home
+﻿package com.sentinel.recaudacion.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -67,7 +67,7 @@ fun HomeScreen(
     val latest by app.incidentRepository.latest.collectAsState(initial = null)
     val lastEvent = latest?.let {
         val f = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault())
-        "${f.format(java.util.Date(it.createdAt))} · ${it.matchType} (${it.source})"
+        "${f.format(java.util.Date(it.createdAt))} Â· ${it.matchType} (${it.source})"
     } ?: "ninguno"
 
     Scaffold(
@@ -97,9 +97,9 @@ fun HomeScreen(
             )
 
             val listaSubtitle = when (val s = summary) {
-                is BlacklistSummary.Loading -> "Cargando…"
+                is BlacklistSummary.Loading -> "Cargandoâ€¦"
                 is BlacklistSummary.Error -> "No se pudo leer la lista"
-                is BlacklistSummary.Ready -> "${s.activas} activas · ${s.personas} personas · ${s.identificadores} identificadores"
+                is BlacklistSummary.Ready -> "${s.activas} activas Â· ${s.personas} personas Â· ${s.identificadores} identificadores"
             }
             SectionItem(Icons.Filled.Block, "Lista negra", listaSubtitle) {
                 onOpen(Routes.BLACKLIST)
@@ -107,36 +107,40 @@ fun HomeScreen(
             SectionItem(Icons.Outlined.ImportExport, "Exportar lista", "Copia de seguridad y plantilla CSV") {
                 onOpen(Routes.IMPORT)
             }
-            SectionItem(Icons.Filled.Send, "Telegram", "Destinos y prueba de envío") {
+            SectionItem(Icons.Filled.Send, "Telegram", "Destinos y prueba de envÃ­o") {
                 onOpen(Routes.TELEGRAM)
             }
             // Pantallas de PRUEBA: solo en el build de pruebas (TEST_TOOLS), no en el corporativo.
             if (com.sentinel.recaudacion.BuildConfig.TEST_TOOLS) {
-                SectionItem(Icons.Filled.Notifications, "Prueba de alarma", "Sonido y vibración") {
+                SectionItem(Icons.Filled.Notifications, "Prueba de alarma", "Sonido y vibraciÃ³n") {
                     onOpen(Routes.ALARM)
                 }
-                SectionItem(Icons.Filled.Block, "Prueba de texto", "Simulación local sin envío de alertas") {
+                SectionItem(Icons.Filled.Block, "Prueba de texto", "SimulaciÃ³n local sin envÃ­o de alertas") {
                     onOpen(Routes.TEXT_TEST)
                 }
             }
-            SectionItem(Icons.Filled.Keyboard, "Teclado de prevención", "Activación y alcance del IME") {
+            SectionItem(Icons.Filled.Keyboard, "Teclado de prevenciÃ³n", "ActivaciÃ³n y alcance del IME") {
                 onOpen(Routes.KEYBOARD)
             }
-            SectionItem(Icons.Filled.Shield, "Detección en billeteras", "Accesibilidad opt-in · solo aviso (experimental)") {
+            SectionItem(Icons.Filled.Shield, "DetecciÃ³n en billeteras", "Accesibilidad opt-in Â· solo aviso (experimental)") {
                 onOpen(Routes.ACCESSIBILITY)
             }
-            SectionItem(Icons.Filled.Shield, "Política de monitoreo", "Qué se lee, qué se envía y registro de aceptación") {
+            SectionItem(Icons.Filled.Shield, "PolÃ­tica de monitoreo", "QuÃ© se lee, quÃ© se envÃ­a y registro de aceptaciÃ³n") {
                 onOpen(Routes.POLICY)
             }
             SectionItem(Icons.Outlined.History, "Historial", "Incidentes registrados") {
                 onOpen(Routes.HISTORY)
             }
-            SectionItem(Icons.Outlined.MonitorHeart, "Permisos y diagnóstico", "Estado real del servicio") {
-                onOpen(Routes.DIAGNOSTICS)
-            }
+                // El visor lee el archivo que solo escribe el escaneo en debug; en el corporativo
+                // no hay nada que mostrar, así que la entrada queda oculta.
+                if (com.sentinel.recaudacion.BuildConfig.TEST_TOOLS) {
+                    SectionItem(Icons.Outlined.MonitorHeart, "Permisos y diagnÃ³stico", "Estado real del servicio") {
+                        onOpen(Routes.DIAGNOSTICS)
+                    }
+                }
             // Solo DEBUG: acceso a la prueba integral del circuito real. La Activity vive en
             // src/debug (no exportada) y no existe en el APK release; se lanza por nombre para
-            // no crear dependencia de compilación con el sourceset de debug.
+            // no crear dependencia de compilaciÃ³n con el sourceset de debug.
             if (com.sentinel.recaudacion.BuildConfig.DEBUG) {
                 SectionItem(Icons.Filled.Warning, "Prueba real (debug)", "Circuito real: incidente + alarma + Telegram") {
                     runCatching {
@@ -165,33 +169,33 @@ private fun StatusCard(summary: BlacklistSummary, telegramConfigured: Boolean, l
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
                 Text(
-                    "  Monitoreo: REQUIERE ATENCIÓN",
+                    "  Monitoreo: REQUIERE ATENCIÃ“N",
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
             Text(
-                "Todavía no hay una fuente de detección configurada (Fase 5). " +
+                "TodavÃ­a no hay una fuente de detecciÃ³n configurada (Fase 5). " +
                     "La lista negra, la alarma y Telegram se preparan en las fases previas.",
                 style = MaterialTheme.typography.bodySmall,
             )
-            // Estado explícito: nunca mostramos "0" como resultado definitivo mientras carga,
-            // ni ocultamos un error como lista vacía.
+            // Estado explÃ­cito: nunca mostramos "0" como resultado definitivo mientras carga,
+            // ni ocultamos un error como lista vacÃ­a.
             val listaTexto = when (summary) {
-                is BlacklistSummary.Loading -> "Lista negra: cargando…"
+                is BlacklistSummary.Loading -> "Lista negra: cargandoâ€¦"
                 is BlacklistSummary.Error -> "Lista negra: ${summary.message}"
                 is BlacklistSummary.Ready ->
-                    "Lista negra: ${summary.activas} reglas activas de ${summary.total} · " +
-                        "${summary.personas} personas · ${summary.identificadores} identificadores."
+                    "Lista negra: ${summary.activas} reglas activas de ${summary.total} Â· " +
+                        "${summary.personas} personas Â· ${summary.identificadores} identificadores."
             }
             Text(
                 listaTexto,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                "Conexión con Telegram: " + if (telegramConfigured) "configurada." else "sin configurar.",
+                "ConexiÃ³n con Telegram: " + if (telegramConfigured) "configurada." else "sin configurar.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Text("Último evento: $lastEvent.", style = MaterialTheme.typography.bodyMedium)
+            Text("Ãšltimo evento: $lastEvent.", style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
