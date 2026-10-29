@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">SENTINEL</string>
+    <string name="app_name">Zoom</string>
     <string name="ime_name">SENTINEL · teclado de prevención</string>
     <string name="accessibility_label">SENTINEL · detección en billeteras</string>
     <string name="accessibility_desc">SOLO detección y aviso en billeteras autorizadas (Mercado Pago, Ualá, Brubank). SENTINEL analiza únicamente el campo de destinatario de esas apps para compararlo con la lista negra; NO bloquea transferencias, NO pulsa controles, NO lee contraseñas ni guarda pantallas. Si coincide, registra el incidente y avisa. Activación voluntaria; se desactiva desde esta misma pantalla.</string>

@@ -4,12 +4,10 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Escudo -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,26 L74,34 L74,54 C74,68 65,78 54,82 C43,78 34,68 34,54 L34,34 Z" />
-    <!-- Letra S -->
+        android:pathData="M36,43 h26 a6,6 0 0 1 6,6 v10 a6,6 0 0 1 -6,6 h-26 a6,6 0 0 1 -6,-6 v-10 a6,6 0 0 1 6,-6 z" />
     <path
-        android:fillColor="#0B3D4A"
-        android:pathData="M60,45 C60,42 57,40 53,40 C49,40 46,42 46,45 C46,48 49,49 53,50 C58,51 62,53 62,58 C62,62 58,64 53,64 C48,64 44,62 44,58 L48,58 C48,60 50,61 53,61 C56,61 58,60 58,58 C58,55 55,54 51,53 C47,52 42,51 42,46 C42,42 47,37 53,37 C59,37 64,41 64,45 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M72,50 L82,43 L82,65 L72,58 Z" />
 </vector>

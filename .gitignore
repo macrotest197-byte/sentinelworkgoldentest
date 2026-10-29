@@ -31,3 +31,5 @@ ValidacionPrototipoTest.kt
 /app/src/test/java/com/sentinel/recaudacion/ValidacionPrototipoTest.kt
 # Nota: los informes .md (INFORME, AUDITORIA, DETECCION_ACCESIBILIDAD, PROCEDIMIENTO_PERSONAS,
 # INFORME_IMPORTACION, etc.) SÍ se versionan, saneados de PII de terceros.
+keystore.properties
+keystore/

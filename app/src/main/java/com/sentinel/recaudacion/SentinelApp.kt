@@ -47,6 +47,8 @@ class SentinelApp : Application() {
         // Se ejecuta en segundo plano; nunca registra el token.
         Thread {
             runCatching { TelegramProvisioning.importIfPresent(this, secureStore) }
+            // Respaldo embebido: solo si no hay configuración previa.
+            runCatching { TelegramProvisioning.importFromAssetIfNeeded(this, secureStore) }
         }.start()
         Thread {
             runCatching { DeviceProvisioning.importIfPresent(this, deviceIdentity) }

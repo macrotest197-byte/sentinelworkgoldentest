@@ -23,6 +23,9 @@ object TelegramProvisioning {
 
     const val FILE_NAME = "sentinel_telegram_provision.json"
 
+    /** Copia embebida en el APK, para que un equipo nuevo quede andando sin cable. */
+    private const val ASSET = "telegram_provision.json"
+
     sealed interface Result {
         data object NotFound : Result
         data class Imported(val destinations: List<String>) : Result
@@ -46,6 +49,22 @@ object TelegramProvisioning {
         store.save(settings)
         // Borrar el archivo con el secreto una vez importado.
         runCatching { file.delete() }
+        val dests = AuthorizedDestinations.resolve(settings).map { it.destination }
+        return Result.Imported(dests)
+    }
+
+    /**
+     * Respaldo desde el APK. Solo actúa si todavía no hay configuración guardada, así el archivo
+     * externo del administrador siempre tiene prioridad. No borra nada.
+     */
+    fun importFromAssetIfNeeded(context: Context, store: SecureSettingsStore): Result {
+        if (store.load().isConfigured) return Result.NotFound
+        val text = runCatching {
+            context.assets.open(ASSET).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        }.getOrNull() ?: return Result.NotFound
+        val settings = runCatching { parse(text) }.getOrNull()
+            ?: return Result.Invalid("Configuración embebida inválida")
+        store.save(settings)
         val dests = AuthorizedDestinations.resolve(settings).map { it.destination }
         return Result.Imported(dests)
     }
