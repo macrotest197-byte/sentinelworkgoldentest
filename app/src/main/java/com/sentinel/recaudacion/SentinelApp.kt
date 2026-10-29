@@ -1,6 +1,7 @@
 package com.sentinel.recaudacion
 
 import android.app.Application
+import com.sentinel.recaudacion.csv.BlacklistSeed
 import com.sentinel.recaudacion.data.db.AppDatabase
 import com.sentinel.recaudacion.data.repo.BlacklistRepository
 import com.sentinel.recaudacion.data.repo.IncidentRepository
@@ -49,6 +50,11 @@ class SentinelApp : Application() {
         }.start()
         Thread {
             runCatching { DeviceProvisioning.importIfPresent(this, deviceIdentity) }
+        }.start()
+        // Siembra inicial desde el APK: una sola vez por instalación, con marca para no repetirse.
+        // Corre en su propio hilo; no borra nada, solo inserta.
+        Thread {
+            runCatching { runBlocking { BlacklistSeed.seedIfNeeded(this@SentinelApp, blacklistRepository) } }
         }.start()
         // CSV de administración: validar antes de agregar/actualizar reglas existentes.
         // Nunca se borra la lista completa; el archivo solo se elimina tras importarse.
