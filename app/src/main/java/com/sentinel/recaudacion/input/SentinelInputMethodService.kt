@@ -16,11 +16,14 @@ import com.sentinel.recaudacion.SentinelApp
 import com.sentinel.recaudacion.data.model.BlacklistPerson
 import com.sentinel.recaudacion.data.model.PersonIdentifier
 import com.sentinel.recaudacion.data.model.RuleType
+import com.sentinel.recaudacion.data.settings.DeviceIdentityStore
 import com.sentinel.recaudacion.detection.BlacklistPersonMatcher
 import com.sentinel.recaudacion.detection.ConfirmedAlertProcessor
 import com.sentinel.recaudacion.detection.InputFieldPolicy
 import com.sentinel.recaudacion.detection.KeyboardEpisodeTracker
+import com.sentinel.recaudacion.detection.PersonScopeFilter
 import com.sentinel.recaudacion.detection.ResolvedMatch
+import com.sentinel.recaudacion.detection.ScanRoute
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,6 +39,9 @@ import kotlinx.coroutines.withContext
  *  - avisa al operador fuera de las teclas,
  *  - y dispara el circuito original (incidente + alarma + Telegram) vía [ConfirmedAlertProcessor].
  * El campo de demostración interno no dispara alarma ni Telegram.
+ *
+ * Las personas se cargan filtradas por [PersonScopeFilter] con la vía CAMPO: las que tienen
+ * el escaneo apagado o están exceptuadas en este dispositivo no llegan al matcher.
  */
 class SentinelInputMethodService : InputMethodService() {
     private enum class Layer { LETTERS, NUMBERS, SYMBOLS }
@@ -72,7 +78,7 @@ class SentinelInputMethodService : InputMethodService() {
         } == true
         fieldAllowed = attribute?.let {
             InputFieldPolicy.canInspect(it.inputType, it.imeOptions, it.privateImeOptions) &&
-                (!InputFieldPolicy.isDemoMarked(it.privateImeOptions) || demoField)
+                    (!InputFieldPolicy.isDemoMarked(it.privateImeOptions) || demoField)
         } == true
         suggestionsAllowed = attribute?.let {
             InputFieldPolicy.suggestionsAllowed(it.inputType, it.imeOptions)
@@ -81,9 +87,18 @@ class SentinelInputMethodService : InputMethodService() {
         refreshKeyboardState()
         updateSuggestions()
         if (fieldAllowed) serviceScope.launch {
-            val stored = withContext(Dispatchers.IO) {
-                (application as SentinelApp).blacklistRepository.activePersons()
+            val device = withContext(Dispatchers.IO) {
+                DeviceIdentityStore(applicationContext).friendlyName
             }
+            val stored = withContext(Dispatchers.IO) {
+                PersonScopeFilter.filter(
+                    (application as SentinelApp).blacklistRepository.activePersons(),
+                    ScanRoute.CAMPO,
+                    device,
+                )
+            }
+            // La persona de demostración se suma después del filtro: tiene que matchear
+            // aunque no esté en la lista ni tenga columnas configuradas.
             persons = if (demoField) stored + demoPerson else stored
             rulesLoaded = true
             refreshKeyboardState()
@@ -222,7 +237,7 @@ class SentinelInputMethodService : InputMethodService() {
         if (!cm.hasPrimaryClip()) return false
         val desc = cm.primaryClipDescription ?: return false
         return desc.hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_PLAIN) ||
-            desc.hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_HTML)
+                desc.hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_HTML)
     }
 
     /** Reemplaza la palabra actual por la sugerencia elegida (solo al tocarla; nunca automático). */

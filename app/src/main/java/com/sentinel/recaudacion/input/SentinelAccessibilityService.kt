@@ -5,10 +5,13 @@ import android.view.accessibility.AccessibilityEvent
 import com.sentinel.recaudacion.BuildConfig
 import com.sentinel.recaudacion.SentinelApp
 import com.sentinel.recaudacion.data.model.BlacklistPerson
+import com.sentinel.recaudacion.data.settings.DeviceIdentityStore
 import com.sentinel.recaudacion.detection.AccessibilityScanPolicy
 import com.sentinel.recaudacion.detection.BlacklistPersonMatcher
 import com.sentinel.recaudacion.detection.ConfirmedAlertProcessor
+import com.sentinel.recaudacion.detection.PersonScopeFilter
 import com.sentinel.recaudacion.detection.ResolvedMatch
+import com.sentinel.recaudacion.detection.ScanRoute
 import com.sentinel.recaudacion.detection.ScreenScanPolicy
 import com.sentinel.recaudacion.detection.TextNormalizer
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +31,10 @@ import kotlinx.coroutines.launch
  *  2. **Pantalla** ([MatchScope.PANTALLA]): el árbol de la ventana, con retardo, para atrapar el
  *     titular que la billetera resuelve después de escribir el alias. Es la red de seguridad.
  *
+ * Cada vía tiene su propia lista de personas: [PersonScopeFilter] decide cuáles participan de
+ * cada una y cuáles quedan exceptuadas en este dispositivo (por ejemplo, los gerentes en los
+ * teléfonos que administran). El dispositivo se lee por su nombre de alta.
+ *
  * Ambas reutilizan [BlacklistPersonMatcher.resolve] y [ConfirmedAlertProcessor]; no hay segundo
  * pipeline. La alerta del escaneo usa la misma eventKey que el campo, así que la dedup del
  * procesador evita avisar dos veces por la misma persona.
@@ -35,7 +42,9 @@ import kotlinx.coroutines.launch
 class SentinelAccessibilityService : AccessibilityService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    @Volatile private var persons: List<BlacklistPerson> = emptyList()
+    @Volatile private var campoPersons: List<BlacklistPerson> = emptyList()
+    @Volatile private var pantallaPersons: List<BlacklistPerson> = emptyList()
+    private val identity by lazy { DeviceIdentityStore(applicationContext) }
     @Volatile private var lastKey: String? = null
     @Volatile private var lastScreenKey: String? = null
     private var screenJob: Job? = null
@@ -45,8 +54,14 @@ class SentinelAccessibilityService : AccessibilityService() {
         scope.launch { refreshPersons() }
     }
 
+    /** Carga las personas y las reparte por vía, aplicando las excepciones del dispositivo. */
     private suspend fun refreshPersons() {
-        runCatching { persons = (application as SentinelApp).blacklistRepository.activePersons() }
+        runCatching {
+            val all = (application as SentinelApp).blacklistRepository.activePersons()
+            val device = identity.friendlyName
+            campoPersons = PersonScopeFilter.filter(all, ScanRoute.CAMPO, device)
+            pantallaPersons = PersonScopeFilter.filter(all, ScanRoute.PANTALLA, device)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -63,8 +78,8 @@ class SentinelAccessibilityService : AccessibilityService() {
             return
         }
         val relevant = e.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ||
-            e.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
-            e.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+                e.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
+                e.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
         if (!relevant) return
 
         // Vía 1: el campo que cambió.
@@ -94,8 +109,8 @@ class SentinelAccessibilityService : AccessibilityService() {
     /** Evalúa el texto del campo cambiado contra la lista negra y, si hay coincidencia, avisa. */
     private fun inspect(pkg: String, text: String) {
         scope.launch {
-            if (persons.isEmpty()) refreshPersons()
-            val resolved = BlacklistPersonMatcher.resolve(text, persons)
+            if (campoPersons.isEmpty()) refreshPersons()
+            val resolved = BlacklistPersonMatcher.resolve(text, campoPersons)
             logMatch(pkg, "campo", resolved)
             if (resolved == null) return@launch
             val key = eventKey(resolved)
@@ -131,8 +146,8 @@ class SentinelAccessibilityService : AccessibilityService() {
         if (screenKey == lastScreenKey) return
         lastScreenKey = screenKey
 
-        if (persons.isEmpty()) refreshPersons()
-        val resolved = BlacklistPersonMatcher.resolve(text, persons, TextNormalizer.MatchScope.PANTALLA)
+        if (pantallaPersons.isEmpty()) refreshPersons()
+        val resolved = BlacklistPersonMatcher.resolve(text, pantallaPersons, TextNormalizer.MatchScope.PANTALLA)
         dumpDiagnostic(pkg, nodes, resolved)
         logMatch(pkg, "pantalla", resolved)
         if (resolved == null) return
@@ -199,7 +214,8 @@ class SentinelAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         screenJob?.cancel()
         scope.cancel()
-        persons = emptyList()
+        campoPersons = emptyList()
+        pantallaPersons = emptyList()
         super.onDestroy()
     }
 
