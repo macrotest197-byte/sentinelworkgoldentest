@@ -19,13 +19,14 @@ Telegram (cola con reintentos). No se alerta por carácter; se evalúa el campo 
 ## 2. Formato de la alerta de Telegram
 ```
 🚨 SENTINEL — DETECCIÓN DE LISTA NEGRA
-📱 Dispositivo: Celular Pato
+📱 Dispositivo: Celular Pato · Billetera: <billetera en foco>
 🔎 Palabra detectada: patodm.nx
 👤 Le corresponde a: Pato Encargado
 🧾 Tipo de dato: Alias
 🕒 Fecha y hora: <fecha y hora local>
 ```
 - **Palabra detectada**: el identificador concreto que coincidió (no el texto del operador).
+- **Billetera**: nombre de la app en foco, resuelto por paquete en la vía de accesibilidad; va en la misma línea del dispositivo.
 - **Le corresponde a**: nombre de la persona vinculada. Si el identificador no resuelve a nadie,
   `Sin resolver`; si corresponde a **más de una persona**, `Sin resolver (asociación ambigua)`.
   **Nunca** se inventa un nombre ni se elige una persona arbitrariamente.
@@ -34,20 +35,23 @@ Telegram (cola con reintentos). No se alerta por carácter; se evalúa el campo 
 ## 3. Formato CSV de administración (personas)
 Encabezado (las dos primeras columnas son obligatorias; el resto es opcional y retrocompatible):
 ```
-tipo,valor,descripcion,severidad,activo,persona_id,nombre_principal,variantes
+tipo,valor,descripcion,severidad,activo,persona_id,nombre_principal,variantes,escaneo,excepto_en_dispositivos
 ```
 - Una persona se expresa en **varias filas** que comparten el mismo `persona_id` y
   `nombre_principal`. Cada fila aporta un identificador (alias/CBU/CVU/DNI/nombre).
 - `variantes`: nombres alternativos separados por `|` (p. ej. `"Patricio Encargado|Pato E."`).
+- `escaneo`: `si` o `no`, por defecto `si`. Con `no`, la persona queda fuera del escaneo de pantalla en todos los dispositivos.
+- `excepto_en_dispositivos`: nombres de dispositivo separados por `|` (p. ej. `Aquino Valeria|Ortiz Patricia`). En esos celulares la persona no alerta por pantalla; en el resto sí. Es dato, no código: se cambia el CSV y se reimporta, sin APK nuevo.
+- Las dos columnas son por persona: se repiten igual en todas las filas de la misma `persona_id`.
 - CSV sin las columnas de persona sigue funcionando igual que antes (retrocompatibilidad):
   las reglas se tratan como identificadores sueltos sin persona asociada.
 
 Ejemplo (persona `pato-1` = «Pato Encargado», con la regla `patodm.nx`):
 ```
-tipo,valor,descripcion,severidad,activo,persona_id,nombre_principal,variantes
-Alias,patodm.nx,Cuenta restringida,Crítica,si,pato-1,Pato Encargado,"Patricio Encargado"
-CBU,0000003100010000000001,,Crítica,si,pato-1,Pato Encargado,"Patricio Encargado"
-Nombre,Pato Encargado,,Crítica,si,pato-1,Pato Encargado,"Patricio Encargado"
+tipo,valor,descripcion,severidad,activo,persona_id,nombre_principal,variantes,escaneo,excepto_en_dispositivos
+Alias,patodm.nx,Cuenta restringida,Crítica,si,pato-1,Pato Encargado,"Patricio Encargado",si,
+CBU,0000003100010000000001,,Crítica,si,pato-1,Pato Encargado,"Patricio Encargado",si,
+Nombre,Pato Encargado,,Crítica,si,pato-1,Pato Encargado,"Patricio Encargado",si,
 ```
 - `BlacklistProvisioning.applyProvisionedRules` **actualiza en sitio** las reglas existentes por
   `(tipo, valor normalizado)`; no borra la lista ni reinicia la base. El historial se conserva.
