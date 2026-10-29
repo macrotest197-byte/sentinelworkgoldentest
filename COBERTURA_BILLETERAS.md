@@ -71,3 +71,6 @@ a las apps en alcance.
 - **No implementado**: si se decide avanzar, el siguiente paso sería un diseño detallado del servicio
   (apps en alcance, consentimiento, qué nodos se leen, qué se intenta bloquear, pruebas por app),
   antes de escribir código.
+
+## Medición en dispositivo (29/10/2026)
+Las ocho billeteras de la lista permitida ya están implementadas y medidas. El detalle por billetera, los umbrales derivados y los límites constan en [MEDICION_PANTALLA.md](MEDICION_PANTALLA.md).
