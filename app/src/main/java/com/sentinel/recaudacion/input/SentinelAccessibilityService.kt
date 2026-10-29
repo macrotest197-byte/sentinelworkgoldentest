@@ -199,6 +199,11 @@ class SentinelAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    override fun onUnbind(intent: android.content.Intent?): Boolean {
+        com.sentinel.recaudacion.work.GuardScheduler.checkNow(applicationContext)
+        return super.onUnbind(intent)
+    }
+
     override fun onDestroy() {
         screenJob?.cancel()
         scope.cancel()
