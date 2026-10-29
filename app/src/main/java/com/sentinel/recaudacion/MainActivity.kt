@@ -14,8 +14,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.sentinel.recaudacion.data.settings.ConsentStore
 import com.sentinel.recaudacion.data.settings.DeviceIdentityStore
+import com.sentinel.recaudacion.data.settings.DeviceRegistrationStatus
 import com.sentinel.recaudacion.ui.consent.MonitoringPolicyScreen
 import com.sentinel.recaudacion.ui.navigation.SentinelNavHost
+import com.sentinel.recaudacion.ui.setup.DeviceNameScreen
 import com.sentinel.recaudacion.ui.theme.SentinelTheme
 
 class MainActivity : ComponentActivity() {
@@ -23,8 +25,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // El consentimiento se resuelve antes de montar la navegación: sin aceptar no hay
-        // pantalla de inicio, ni accesos directos a secciones.
+        // Dos portones antes de la navegación, en este orden:
+        //  1. nombre del celular: sin nombre el equipo no se identifica en las alertas;
+        //  2. consentimiento: sin aceptar no hay pantalla de inicio ni accesos a secciones.
         val consent = ConsentStore(this)
         val identity = DeviceIdentityStore(this)
 
@@ -34,12 +37,19 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
+                    var named by remember {
+                        mutableStateOf(identity.status == DeviceRegistrationStatus.REGISTRADO)
+                    }
                     var accepted by remember { mutableStateOf(consent.isAccepted()) }
 
-                    if (accepted) {
-                        SentinelNavHost()
-                    } else {
-                        MonitoringPolicyScreen(
+                    when {
+                        !named -> DeviceNameScreen(
+                            onSave = { name ->
+                                identity.setAdministratorName(name)
+                                named = true
+                            },
+                        )
+                        !accepted -> MonitoringPolicyScreen(
                             onboarding = true,
                             onAccept = {
                                 consent.accept(identity.id)
@@ -47,6 +57,7 @@ class MainActivity : ComponentActivity() {
                             },
                             onBack = {},
                         )
+                        else -> SentinelNavHost()
                     }
                 }
             }
