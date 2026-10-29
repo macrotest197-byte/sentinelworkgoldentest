@@ -1,4 +1,4 @@
-﻿package com.sentinel.recaudacion
+package com.sentinel.recaudacion
 
 import android.app.Application
 import com.sentinel.recaudacion.data.db.AppDatabase
@@ -12,7 +12,7 @@ import com.sentinel.recaudacion.telegram.TelegramProvisioning
 import com.sentinel.recaudacion.telegram.TelegramRepository
 import kotlinx.coroutines.runBlocking
 
-/** Contenedor simple de dependencias de la aplicaciÃ³n. */
+/** Contenedor simple de dependencias de la aplicación. */
 class SentinelApp : Application() {
 
     val database: AppDatabase by lazy { AppDatabase.get(this) }
@@ -39,7 +39,7 @@ class SentinelApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Mantiene la versiÃ³n de SENTINEL al dÃ­a en el inventario del dispositivo (sin alterar id ni alta).
+        // Mantiene la versión de SENTINEL al día en el inventario del dispositivo (sin alterar id ni alta).
         runCatching { deviceIdentity.syncAppVersion() }
         runCatching { com.sentinel.recaudacion.work.GuardScheduler.ensurePeriodic(this) }
         // Aprovisionamiento de Telegram desde archivo del administrador (fuera de la UI).
@@ -50,7 +50,7 @@ class SentinelApp : Application() {
         Thread {
             runCatching { DeviceProvisioning.importIfPresent(this, deviceIdentity) }
         }.start()
-        // CSV de administraciÃ³n: validar antes de agregar/actualizar reglas existentes.
+        // CSV de administración: validar antes de agregar/actualizar reglas existentes.
         // Nunca se borra la lista completa; el archivo solo se elimina tras importarse.
         Thread {
             runCatching {

@@ -1,4 +1,4 @@
-﻿package com.sentinel.recaudacion.ui.input
+package com.sentinel.recaudacion.ui.input
 
 import android.content.Intent
 import android.os.Bundle
@@ -33,16 +33,16 @@ import com.sentinel.recaudacion.telegram.AlertMessage
 import com.sentinel.recaudacion.ui.theme.SentinelTheme
 
 /**
- * Recibe texto que el operador **envÃ­a o selecciona explÃ­citamente** hacia SENTINEL
- * (ACTION_PROCESS_TEXT desde el menÃº de selecciÃ³n, o "Compartir"). Entrada consentida y
- * acotada a la operaciÃ³n: NO hay lectura de fondo ni captura oculta.
+ * Recibe texto que el operador **envía o selecciona explícitamente** hacia SENTINEL
+ * (ACTION_PROCESS_TEXT desde el menú de selección, o "Compartir"). Entrada consentida y
+ * acotada a la operación: NO hay lectura de fondo ni captura oculta.
  *
- * Muestra una **vista previa local** de la alerta que se generarÃ­a, usando el modelo real de
+ * Muestra una **vista previa local** de la alerta que se generaría, usando el modelo real de
  * personas ([BlacklistPersonMatcher.resolve]), la identidad real del dispositivo
  * ([DeviceIdentityStore]) y el **mismo generador de mensajes** del circuito de alertas
  * ([AlertMessage.alert]). Es estrictamente local: NO crea incidentes, NO activa la alarma,
- * NO encola ni envÃ­a nada a Telegram. El procesamiento operativo real (incidente + alarma +
- * Telegram) se realiza Ãºnicamente por el circuito autorizado (ConfirmedAlertProcessor).
+ * NO encola ni envía nada a Telegram. El procesamiento operativo real (incidente + alarma +
+ * Telegram) se realiza únicamente por el circuito autorizado (ConfirmedAlertProcessor).
  */
 class EvaluateTextActivity : ComponentActivity() {
 
@@ -59,13 +59,13 @@ class EvaluateTextActivity : ComponentActivity() {
                         ResultState.Empty
                     } else {
                         val persons = app.blacklistRepository.activePersons()
-                        // ResoluciÃ³n pura: no toca el deduplicador real ni ningÃºn efecto lateral.
+                        // Resolución pura: no toca el deduplicador real ni ningún efecto lateral.
                         val resolved = BlacklistPersonMatcher.resolve(text, persons)
                         if (resolved == null) {
                             ResultState.NoMatch
                         } else {
                             val identity = app.deviceIdentity.snapshot()
-                            // Â«Le corresponde aÂ»: persona real, o estado explÃ­cito (sin inventar).
+                            // «Le corresponde a»: persona real, o estado explícito (sin inventar).
                             val personDisplay = resolved.personName
                                 ?: if (resolved.ambiguous) AlertMessage.AMBIGUOUS else AlertMessage.UNRESOLVED
                             // Mismo generador del circuito de alertas: no se duplica el formato.
@@ -113,15 +113,15 @@ private fun EvaluateScreen(state: ResultState) {
         Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("SENTINEL â€” VerificaciÃ³n de texto", style = MaterialTheme.typography.titleLarge)
+        Text("SENTINEL — Verificación de texto", style = MaterialTheme.typography.titleLarge)
         Text(
-            "VerificaciÃ³n consentida: analizÃ¡s el texto que vos enviaste o seleccionaste. " +
-                "Vista previa local: no se crea incidente, no se activa la alarma ni se envÃ­a Telegram.",
+            "Verificación consentida: analizás el texto que vos enviaste o seleccionaste. " +
+                "Vista previa local: no se crea incidente, no se activa la alarma ni se envía Telegram.",
             style = MaterialTheme.typography.bodySmall,
         )
         when (state) {
-            ResultState.Loading -> Text("Analizandoâ€¦")
-            ResultState.Empty -> Text("No se recibiÃ³ texto para analizar.")
+            ResultState.Loading -> Text("Analizando…")
+            ResultState.Empty -> Text("No se recibió texto para analizar.")
             ResultState.NoMatch -> Card(Modifier.fillMaxWidth()) {
                 Text("Sin coincidencias con la lista negra.", Modifier.padding(16.dp))
             }
@@ -145,26 +145,26 @@ private fun AlertPreviewCard(match: ResultState.Match) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Vista previa de alerta (local â€” no enviada)", style = MaterialTheme.typography.titleMedium)
-            // Mensaje generado por AlertMessage.alert (mismo texto que enviarÃ­a el circuito real).
+            Text("Vista previa de alerta (local — no enviada)", style = MaterialTheme.typography.titleMedium)
+            // Mensaje generado por AlertMessage.alert (mismo texto que enviaría el circuito real).
             Text(match.preview, style = MaterialTheme.typography.bodyMedium)
-            // Estados explÃ­citos cuando falta informaciÃ³n real (no se inventa nada).
+            // Estados explícitos cuando falta información real (no se inventa nada).
             if (deviceUnregistered) {
                 Text(
-                    "âš  Dispositivo sin registrar: se usa el nombre provisional Â«${id.friendlyName}Â». " +
+                    "⚠ Dispositivo sin registrar: se usa el nombre provisional «${id.friendlyName}». " +
                         "Registralo con el flujo de administrador.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
             if (r.personName == null) {
                 val detalle = if (r.ambiguous)
-                    "El identificador corresponde a mÃ¡s de una persona; no se elige ninguna."
+                    "El identificador corresponde a más de una persona; no se elige ninguna."
                 else
-                    "El identificador no estÃ¡ asociado a ninguna persona registrada."
-                Text("âš  $detalle", style = MaterialTheme.typography.bodySmall)
+                    "El identificador no está asociado a ninguna persona registrada."
+                Text("⚠ $detalle", style = MaterialTheme.typography.bodySmall)
             }
             Text(
-                "Persona: $personLine Â· Confianza: ${"%.0f".format(r.confidence * 100)}% Â· " +
+                "Persona: $personLine · Confianza: ${"%.0f".format(r.confidence * 100)}% · " +
                     "Dispositivo: ${id.friendlyName}",
                 style = MaterialTheme.typography.bodySmall,
             )
