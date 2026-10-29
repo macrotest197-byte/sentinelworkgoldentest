@@ -15,7 +15,8 @@ import java.text.Normalizer
  * NOMBRES (cambio de dirección): la lista guarda el nombre legal completo y la billetera
  * puede mostrar una versión PARCIAL del mismo (lo permite mientras sea compatible con el
  * documento). Por eso el match acepta que el texto observado sea más corto que el guardado,
- * más largo, con iniciales, con el nombre de pila abreviado o en orden invertido.
+ * más largo, con iniciales, con el nombre de pila abreviado, con el apellido truncado por
+ * ancho de pantalla o en orden invertido.
  *
  * Los vecinos pasan a ser una PREFERENCIA, no un requisito: en una pantalla completa el
  * nombre aparece rodeado de palabras que no están en [SENTENCE_WORDS] y exigirlas
@@ -34,6 +35,7 @@ object TextNormalizer {
     /** Reglas ampliadas. Habilitadas por decisión del proyecto: más cobertura, más ruido. */
     private const val ALLOW_REVERSED_ORDER = true
     private const val ALLOW_ABBREVIATED_FIRST_NAME = true
+    private const val ALLOW_TRUNCATED_LAST_NAME = true
     private const val ALLOW_WIDE_SPAN = true
 
     data class Match(val confidence: Double, val matchedText: String)
@@ -110,8 +112,9 @@ object TextNormalizer {
      *
      * Busca un tramo en [seen] que arranque en el primer nombre guardado y termine en el último,
      * con los nombres del medio libres (la billetera puede mostrar un subconjunto, agregar
-     * segundos nombres o usar iniciales). También acepta el orden invertido y el nombre de pila
-     * abreviado. Los tokens vecinos no se exigen: solo se prefieren.
+     * segundos nombres o usar iniciales). También acepta el orden invertido, el nombre de pila
+     * abreviado y el apellido truncado por ancho de pantalla. Los tokens vecinos no se exigen:
+     * solo se prefieren.
      */
     private fun matchName(
         wanted: List<String>,
@@ -144,6 +147,11 @@ object TextNormalizer {
                 } else if (ALLOW_ABBREVIATED_FIRST_NAME && seen[i].length >= 3 &&
                     first.startsWith(seen[i]) && seen[j] == last
                 ) {
+                    keep(Match(conf, span))
+                } else if (ALLOW_TRUNCATED_LAST_NAME && seen[j].length >= 3 &&
+                    last.startsWith(seen[j]) && seen[i] == first
+                ) {
+                    // Apellido cortado por el ancho de la pantalla: "PATRICIO HUGO DIAZ MAD".
                     keep(Match(conf, span))
                 }
             }

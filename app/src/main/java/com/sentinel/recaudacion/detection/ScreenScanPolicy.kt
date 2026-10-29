@@ -1,20 +1,15 @@
-package com.sentinel.recaudacion.detection
+﻿package com.sentinel.recaudacion.detection
 
+import com.sentinel.recaudacion.data.model.RuleType
 import java.security.MessageDigest
 
-/**
- * Política **pura y testeable** del escaneo de pantalla. Decide si una pantalla merece
- * analizarse; no decide coincidencias (eso es del matcher).
- *
- * Fail-closed igual que el resto: solo apps de la allowlist, texto con un largo razonable,
- * con letras y con contexto de transferencia.
- */
 object ScreenScanPolicy {
 
     private const val MIN_LEN = 12
     private const val MAX_LEN = 4000
+    private const val MIN_NAME_CONFIDENCE = 0.96
+    private const val MIN_IDENTIFIER_CONFIDENCE = 0.99
 
-    /** Palabras que indican pantalla de transferencia / carga de destinatario. */
     private val CONTEXT_WORDS = setOf(
         "alias", "cbu", "cvu", "destinatario", "destinataria", "transferir", "transferencia",
         "enviar", "envio", "titular", "cuenta", "confirmar", "importe", "monto", "pesos",
@@ -34,7 +29,11 @@ object ScreenScanPolicy {
         return tokens.any { it in CONTEXT_WORDS }
     }
 
-    /** Huella estable del texto normalizado: mismo contenido no re-analiza. */
+    fun shouldAlert(matchType: RuleType, confidence: Double): Boolean = when (matchType) {
+        RuleType.NOMBRE -> confidence >= MIN_NAME_CONFIDENCE
+        else -> confidence >= MIN_IDENTIFIER_CONFIDENCE
+    }
+
     fun screenKey(text: String): String {
         val normalized = TextNormalizer.normalizeText(text)
         val digest = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray())

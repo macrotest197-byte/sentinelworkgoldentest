@@ -1,4 +1,4 @@
-package com.sentinel.recaudacion
+﻿package com.sentinel.recaudacion
 
 import com.sentinel.recaudacion.data.model.RuleType
 import com.sentinel.recaudacion.detection.TextNormalizer
@@ -9,14 +9,14 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Dirección del match y reglas de pantalla. La lista guarda el nombre legal completo. */
+/** DirecciÃ³n del match y reglas de pantalla. La lista guarda el nombre legal completo. */
 class TextNormalizerScreenTest {
 
     private val legal = "Santiago Nicolas Gutierrez"
 
     @Test
     fun pantallaMasCortaQueLaLista_direccionQueFaltaba() {
-        // El caso que hoy fallaba: la billetera muestra una versión parcial del documento.
+        // El caso que hoy fallaba: la billetera muestra una versiÃ³n parcial del documento.
         assertTrue(TextNormalizer.matches(RuleType.NOMBRE, legal, "Santiago Gutierrez", MatchScope.PANTALLA))
         assertTrue(TextNormalizer.matches(RuleType.NOMBRE, legal, "Santiago Gutierrez", MatchScope.CAMPO))
     }
@@ -35,7 +35,7 @@ class TextNormalizerScreenTest {
 
     @Test
     fun nombreRodeadoDePalabrasQueNoEstanEnLaListaDeVecinos() {
-        // Antes se descartaba por "nombre" adelante y "alias" atrás.
+        // Antes se descartaba por "nombre" adelante y "alias" atrÃ¡s.
         assertTrue(TextNormalizer.matches(RuleType.NOMBRE, legal, "celular o nombre Santiago Gutierrez", MatchScope.PANTALLA))
         assertTrue(TextNormalizer.matches(RuleType.NOMBRE, legal, "Santiago Gutierrez Alias patocdm.mp", MatchScope.PANTALLA))
     }
@@ -44,7 +44,7 @@ class TextNormalizerScreenTest {
     fun tokenUnicoSoloEnPantalla() {
         assertTrue(TextNormalizer.matches(RuleType.NOMBRE, legal, "Santiago", MatchScope.PANTALLA))
         assertTrue(TextNormalizer.matches(RuleType.NOMBRE, legal, "Gutierrez", MatchScope.PANTALLA))
-        // En un campo, un solo token haría disparar por otra persona.
+        // En un campo, un solo token harÃ­a disparar por otra persona.
         assertFalse(TextNormalizer.matches(RuleType.NOMBRE, legal, "Santiago Gonzalez", MatchScope.CAMPO))
         assertTrue(TextNormalizer.matches(RuleType.NOMBRE, legal, "Santiago Gonzalez", MatchScope.PANTALLA))
     }
@@ -67,5 +67,18 @@ class TextNormalizerScreenTest {
     fun sigueRechazandoLoQueNoCorresponde() {
         assertNull(TextNormalizer.match(RuleType.NOMBRE, legal, "Myriam Zapata", MatchScope.PANTALLA))
         assertFalse(TextNormalizer.matches(RuleType.NOMBRE, legal, "Lucas Vila", MatchScope.PANTALLA))
+    }
+
+    @Test
+    fun apellidoTruncadoPorAnchoDePantallaMatchea() {
+        val m = TextNormalizer.match(
+            RuleType.NOMBRE, "Patricio Hugo Diaz Madrid", "PATRICIO HUGO DIAZ MAD", MatchScope.PANTALLA,
+        )
+        assertEquals(0.96, m!!.confidence, 0.001)
+    }
+
+    @Test
+    fun apellidoTruncadoDemasiadoCortoQuedaEnLaRedAncha() {
+        assertEquals(0.95, TextNormalizer.match(RuleType.NOMBRE, legal, "Santiago Nicolas Gu", MatchScope.PANTALLA)!!.confidence, 0.001)
     }
 }

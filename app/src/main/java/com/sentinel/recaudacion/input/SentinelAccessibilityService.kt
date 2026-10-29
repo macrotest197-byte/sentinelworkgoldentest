@@ -1,4 +1,4 @@
-package com.sentinel.recaudacion.input
+﻿package com.sentinel.recaudacion.input
 
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
@@ -23,21 +23,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Servicio de accesibilidad **opt-in** y acotado a billeteras autorizadas. **Detecta y avisa**,
- * NUNCA bloquea. No pulsa controles, no modifica campos, no toca transferencias.
+ * Servicio de accesibilidad opt-in, acotado a billeteras autorizadas. Detecta y avisa, NUNCA
+ * bloquea.
  *
- * Dos fuentes, un solo circuito:
- *  1. **Campo** ([MatchScope.CAMPO]): el texto del campo que cambió. Es la vía exacta.
- *  2. **Pantalla** ([MatchScope.PANTALLA]): el árbol de la ventana, con retardo, para atrapar el
- *     titular que la billetera resuelve después de escribir el alias. Es la red de seguridad.
+ * Dos fuentes, un solo circuito: el campo que cambió (vía exacta) y la pantalla completa con
+ * retardo (red de seguridad para el titular que la billetera resuelve después).
  *
- * Cada vía tiene su propia lista de personas: [PersonScopeFilter] decide cuáles participan de
- * cada una y cuáles quedan exceptuadas en este dispositivo (por ejemplo, los gerentes en los
- * teléfonos que administran). El dispositivo se lee por su nombre de alta.
- *
- * Ambas reutilizan [BlacklistPersonMatcher.resolve] y [ConfirmedAlertProcessor]; no hay segundo
- * pipeline. La alerta del escaneo usa la misma eventKey que el campo, así que la dedup del
- * procesador evita avisar dos veces por la misma persona.
+ * Cada vía tiene su propia lista: [PersonScopeFilter] decide qué personas participan y cuáles
+ * quedan exceptuadas en este dispositivo.
  */
 class SentinelAccessibilityService : AccessibilityService() {
 
@@ -54,7 +47,6 @@ class SentinelAccessibilityService : AccessibilityService() {
         scope.launch { refreshPersons() }
     }
 
-    /** Carga las personas y las reparte por vía, aplicando las excepciones del dispositivo. */
     private suspend fun refreshPersons() {
         runCatching {
             val all = (application as SentinelApp).blacklistRepository.activePersons()
@@ -70,7 +62,6 @@ class SentinelAccessibilityService : AccessibilityService() {
         if (pkg == null || pkg !in AccessibilityScanPolicy.ALLOWED_PACKAGES) return
 
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            // Nueva pantalla: se rearma todo y se refrescan las reglas.
             lastKey = null
             lastScreenKey = null
             screenJob?.cancel()
@@ -78,14 +69,11 @@ class SentinelAccessibilityService : AccessibilityService() {
             return
         }
         val relevant = e.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ||
-                e.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
-                e.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+            e.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
+            e.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
         if (!relevant) return
 
-        // Vía 1: el campo que cambió.
         inspectField(pkg, e)
-
-        // Vía 2: la pantalla, con retardo, para cuando la billetera resuelve el titular.
         scheduleScreenScan(pkg)
     }
 
@@ -106,7 +94,6 @@ class SentinelAccessibilityService : AccessibilityService() {
         inspect(pkg, text.trim())
     }
 
-    /** Evalúa el texto del campo cambiado contra la lista negra y, si hay coincidencia, avisa. */
     private fun inspect(pkg: String, text: String) {
         scope.launch {
             if (campoPersons.isEmpty()) refreshPersons()
@@ -132,10 +119,6 @@ class SentinelAccessibilityService : AccessibilityService() {
         }
     }
 
-    /**
-     * Lee la ventana completa y la evalúa con [TextNormalizer.MatchScope.PANTALLA]. Solo actúa
-     * en modo diagnóstico; en producción se habilitará después de la medición en dispositivo.
-     */
     private suspend fun scanScreen(pkg: String) {
         val nodes = runCatching { ScreenTextCollector.collect(rootInActiveWindow) }.getOrDefault(emptyList())
         if (nodes.isEmpty()) return
@@ -151,11 +134,16 @@ class SentinelAccessibilityService : AccessibilityService() {
         dumpDiagnostic(pkg, nodes, resolved)
         logMatch(pkg, "pantalla", resolved)
         if (resolved == null) return
+        if (!ScreenScanPolicy.shouldAlert(resolved.matchType, resolved.confidence)) return
 
-        // El escaneo todavía no alerta: primero se mide en dispositivo.
+        val key = eventKey(resolved)
+        if (key == lastKey) return
+        lastKey = key
         if (BuildConfig.DEBUG && diagnosticModeEnabled()) {
-            android.util.Log.i("SentinelA11y", "DIAG pantalla pkg=$pkg ${eventKey(resolved)} (SIN alerta)")
+            android.util.Log.i("SentinelA11y", "DIAG pantalla pkg=$pkg $key (SIN alerta)")
+            return
         }
+        deliver(pkg, resolved, "Accesibilidad · pantalla · ${AccessibilityScanPolicy.appLabel(pkg)}", key)
     }
 
     private fun eventKey(resolved: ResolvedMatch): String =
@@ -184,7 +172,6 @@ class SentinelAccessibilityService : AccessibilityService() {
         }
     }
 
-    /** SOLO DEBUG: deja la última pantalla leída para el visor de diagnóstico. */
     private fun dumpDiagnostic(pkg: String, nodes: List<String>, resolved: ResolvedMatch?) {
         if (!BuildConfig.DEBUG) return
         runCatching {
@@ -207,7 +194,6 @@ class SentinelAccessibilityService : AccessibilityService() {
         }
     }
 
-    /** SOLO DEBUG: ¿está el archivo-bandera de diagnóstico? */
     private fun diagnosticModeEnabled(): Boolean =
         runCatching { java.io.File(filesDir, DIAG_FLAG).exists() }.getOrDefault(false)
 
