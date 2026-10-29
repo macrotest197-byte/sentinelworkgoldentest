@@ -193,6 +193,8 @@ class SentinelAccessibilityService : AccessibilityService() {
                     appendLine("ts=${System.currentTimeMillis()}")
                     appendLine("pkg=$pkg")
                     appendLine("app=${AccessibilityScanPolicy.appLabel(pkg)}")
+                    appendLine("device=${identity.friendlyName}")
+                    appendLine("personas campo=${campoPersons.size} pantalla=${pantallaPersons.size}")
                     appendLine(
                         "match=" + (resolved?.let {
                             "${it.matchType.name}|${it.matchedValue}|${it.personId ?: "amb"}|conf=${it.confidence}"
