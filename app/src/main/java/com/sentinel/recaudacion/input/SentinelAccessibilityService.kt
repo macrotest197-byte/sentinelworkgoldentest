@@ -44,7 +44,6 @@ class SentinelAccessibilityService : AccessibilityService() {
     @Volatile private var pantallaPersons: List<BlacklistPerson> = emptyList()
     private val identity by lazy { DeviceIdentityStore(applicationContext) }
     private val consent by lazy { ConsentStore(applicationContext) }
-    @Volatile private var sessionSeq: Int = 0
     @Volatile private var lastKey: String? = null
     @Volatile private var lastScreenKey: String? = null
     private var screenJob: Job? = null
@@ -70,7 +69,6 @@ class SentinelAccessibilityService : AccessibilityService() {
         if (pkg == null || pkg !in AccessibilityScanPolicy.ALLOWED_PACKAGES) return
 
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            sessionSeq++
             lastKey = null
             lastScreenKey = null
             screenJob?.cancel()
@@ -109,7 +107,7 @@ class SentinelAccessibilityService : AccessibilityService() {
             val resolved = BlacklistPersonMatcher.resolve(text, campoPersons)
             logMatch(pkg, "campo", resolved)
             if (resolved == null) return@launch
-            val key = eventKey(resolved)
+            val key = eventKey(pkg, resolved)
             if (key == lastKey) return@launch
             lastKey = key
             if (BuildConfig.DEBUG && diagnosticModeEnabled()) {
@@ -145,7 +143,7 @@ class SentinelAccessibilityService : AccessibilityService() {
         if (resolved == null) return
         if (!ScreenScanPolicy.shouldAlert(resolved.matchType, resolved.confidence)) return
 
-        val key = eventKey(resolved)
+        val key = eventKey(pkg, resolved)
         if (key == lastKey) return
         lastKey = key
         if (BuildConfig.DEBUG && diagnosticModeEnabled()) {
@@ -155,9 +153,9 @@ class SentinelAccessibilityService : AccessibilityService() {
         deliver(pkg, resolved, "Accesibilidad · pantalla · ${AccessibilityScanPolicy.appLabel(pkg)}", key)
     }
 
-    private fun eventKey(resolved: ResolvedMatch): String {
+    private fun eventKey(pkg: String, resolved: ResolvedMatch): String {
         val person = resolved.personId ?: "amb|${resolved.matchType.name}|${resolved.matchedValue}"
-        return "$sessionSeq|$person"
+        return "$pkg|$person"
     }
 
     private fun logMatch(pkg: String, via: String, resolved: ResolvedMatch?) {

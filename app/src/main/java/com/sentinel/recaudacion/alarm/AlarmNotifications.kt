@@ -69,7 +69,8 @@ object AlarmNotifications {
             .setAutoCancel(false)
             .setContentIntent(contentPi)
             .setFullScreenIntent(fullScreenPi, true)
-            .addAction(0, "RECONOCER", ackPi)
+            .addAction(0, "RECONOCER Y DETENER", ackPi)
+            .addAction(0, "VER ALERTA", fullScreenPi)
             .build()
     }
 }

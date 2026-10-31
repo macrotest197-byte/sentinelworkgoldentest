@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
  * deduplicación persistente de los envíos a Telegram la mantiene además la cola (outbox).
  */
 class EventDeduplicator(
-    private val windowMs: Long = 120_000L,
+    private val windowMs: Long = 600_000L,
     private val now: () -> Long = { System.currentTimeMillis() },
 ) {
     private val recent = ConcurrentHashMap<String, Long>()

@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 
 /**
  * Servicio en primer plano que reproduce la alarma local y publica la notificación
@@ -18,6 +20,8 @@ import android.os.IBinder
  * de detección (Fase 5), el arranque se hará desde un contexto permitido.
  */
 class AlarmService : Service() {
+
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -49,9 +53,13 @@ class AlarmService : Service() {
         }
         // Evita alarmas simultáneas: start() devuelve false si ya había una activa.
         AlarmController.start(this)
+        // Corte automático: si nadie la reconoce, la alarma no queda sonando para siempre.
+        handler.removeCallbacksAndMessages(null)
+        handler.postDelayed({ stopAlarm() }, AUTO_STOP_MS)
     }
 
     private fun stopAlarm() {
+        handler.removeCallbacksAndMessages(null)
         AlarmController.stop(this)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -64,6 +72,7 @@ class AlarmService : Service() {
 
     companion object {
         const val ACTION_STOP = "com.sentinel.recaudacion.alarm.ACTION_STOP"
+        private const val AUTO_STOP_MS = 5_000L
         const val EXTRA_MESSAGE = "message"
 
         fun start(context: Context, message: String) {
