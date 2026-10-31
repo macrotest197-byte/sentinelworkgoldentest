@@ -53,6 +53,7 @@ class AlarmService : Service() {
         }
         // Evita alarmas simultáneas: start() devuelve false si ya había una activa.
         AlarmController.start(this)
+        AlarmOverlay.show(this, message)
         // Corte automático: si nadie la reconoce, la alarma no queda sonando para siempre.
         handler.removeCallbacksAndMessages(null)
         handler.postDelayed({ stopAlarm() }, AUTO_STOP_MS)
@@ -60,12 +61,14 @@ class AlarmService : Service() {
 
     private fun stopAlarm() {
         handler.removeCallbacksAndMessages(null)
+        AlarmOverlay.hide()
         AlarmController.stop(this)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
     override fun onDestroy() {
+        AlarmOverlay.hide()
         AlarmController.stop(this)
         super.onDestroy()
     }

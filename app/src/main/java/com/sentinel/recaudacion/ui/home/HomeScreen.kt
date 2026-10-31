@@ -122,6 +122,16 @@ fun HomeScreen(
             SectionItem(Icons.Filled.Keyboard, "Teclado de prevención", "Activación y alcance del IME") {
                 onOpen(Routes.KEYBOARD)
             }
+            SectionItem(Icons.Filled.Shield, "Mostrar alerta sobre otras apps", "Permiso para que el cartel aparezca encima") {
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:" + context.packageName),
+                        ),
+                    )
+                }
+            }
             SectionItem(Icons.Filled.Shield, "Detección en billeteras", "Accesibilidad opt-in · solo aviso (experimental)") {
                 onOpen(Routes.ACCESSIBILITY)
             }
